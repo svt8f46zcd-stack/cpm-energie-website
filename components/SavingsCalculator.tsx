@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 
 const PROVIDERS = ["E.ON", "EnBW", "Vattenfall", "RheinEnergie", "Mainova", "Stadtwerke München", "Yello Strom", "LichtBlick", "Naturstrom", "EWE", "Energieversorgung Mittelrhein", "Sonstiger Anbieter"];
-const ZIP_API = "https://api.zippopotam.us/de";
 const NOMINATIM_API = "https://nominatim.openstreetmap.org";
 
 type NominatimResult = {
@@ -18,16 +17,6 @@ type NominatimResult = {
     municipality?: string;
     postcode?: string;
   };
-};
-
-type ZipResponse = {
-  "post code": string;
-  places?: Array<{
-    "place name": string;
-    state?: string;
-    latitude?: string;
-    longitude?: string;
-  }>;
 };
 
 export function SavingsCalculator() {
@@ -65,14 +54,29 @@ export function SavingsCalculator() {
     setStreet("");
     setStreetSuggestions([]);
 
-    fetch(`${ZIP_API}/${postalCode}`, { signal: controller.signal, cache: "no-store" })
+    const params = new URLSearchParams({
+      postalcode: postalCode,
+      country: "Germany",
+      format: "jsonv2",
+      addressdetails: "1",
+      limit: "50",
+    });
+
+    fetch(`${NOMINATIM_API}/search?${params.toString()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error("postal lookup");
-        return (await response.json()) as ZipResponse;
+        return (await response.json()) as NominatimResult[];
       })
-      .then((data) => {
+      .then((results) => {
         if (cancelled) return;
-        const unique = Array.from(new Set((data.places ?? []).map((place) => place["place name"]).filter(Boolean)));
+        const unique = Array.from(new Set(results.map((result) => {
+          const address = result.address ?? {};
+          return address.city || address.town || address.village || address.municipality || "";
+        }).filter(Boolean)));
         setCities(unique);
         if (unique.length === 1) setCity(unique[0]);
       })
@@ -121,11 +125,7 @@ export function SavingsCalculator() {
         })
         .then((results) => {
           if (cancelled) return;
-          const names = results
-            .map((result) => result.address?.road || "")
-            .filter(Boolean)
-            .filter((name, index, all) => all.indexOf(name) === index)
-            .slice(0, 8);
+          const names = results.map((result) => result.address?.road || "").filter(Boolean).filter((name, index, all) => all.indexOf(name) === index).slice(0, 8);
           setStreetSuggestions(names);
         })
         .catch(() => {
@@ -159,16 +159,8 @@ export function SavingsCalculator() {
     setDetecting(true);
     navigator.geolocation.getCurrentPosition(async (position) => {
       try {
-        const params = new URLSearchParams({
-          lat: String(position.coords.latitude),
-          lon: String(position.coords.longitude),
-          format: "jsonv2",
-          addressdetails: "1",
-        });
-        const response = await fetch(`${NOMINATIM_API}/reverse?${params.toString()}`, {
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
+        const params = new URLSearchParams({ lat: String(position.coords.latitude), lon: String(position.coords.longitude), format: "jsonv2", addressdetails: "1" });
+        const response = await fetch(`${NOMINATIM_API}/reverse?${params.toString()}`, { cache: "no-store", headers: { Accept: "application/json" } });
         if (!response.ok) throw new Error("location");
         const data = (await response.json()) as NominatimResult;
         const address = data.address ?? {};
@@ -193,7 +185,7 @@ export function SavingsCalculator() {
             <input value={postalCode} onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" maxLength={5} placeholder="z. B. 55278" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]" />
             <button type="button" onClick={detectLocation} disabled={detecting} className="rounded-xl border border-[#19b7ff]/30 px-4 text-sm font-semibold text-[#66d5ff] hover:bg-[#19b7ff]/10">{detecting ? "…" : "📍"}</button>
           </div>
-          {loadingCities && <p className="mt-2 text-xs text-slate-500">Ort wird gesucht …</p>}
+          {loadingCities && <p className="mt-2 text-xs text-slate-500">Orte werden gesucht …</p>}
           {!loadingCities && cities.length > 0 && !city && (
             <div className="mt-2 overflow-hidden rounded-xl border border-[#19b7ff]/30 bg-[#081725] shadow-xl">
               {cities.map((item) => <button key={item} type="button" onClick={() => setCity(item)} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-[#19b7ff]/10">{item}</button>)}
@@ -224,7 +216,7 @@ export function SavingsCalculator() {
         </div>
       </div>
 
-      <p className="text-[11px] leading-4 text-slate-600">Adressdaten: Zippopotam.us und OpenStreetMap Nominatim. Straßen- und Ortsdaten werden nur zur Autovervollständigung abgefragt.</p>
+      <p className="text-[11px] leading-4 text-slate-600">Adressdaten: OpenStreetMap Nominatim. Straßen- und Ortsdaten werden nur zur Autovervollständigung abgefragt.</p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <button type="button" onClick={() => setCustomerType("private")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "private" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Privathaushalt</button>
