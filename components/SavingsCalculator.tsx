@@ -4,6 +4,31 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 
 const PROVIDERS = ["E.ON", "EnBW", "Vattenfall", "RheinEnergie", "Mainova", "Stadtwerke München", "Yello Strom", "LichtBlick", "Naturstrom", "EWE", "Energieversorgung Mittelrhein", "Sonstiger Anbieter"];
+const ZIP_API = "https://api.zippopotam.us/de";
+const NOMINATIM_API = "https://nominatim.openstreetmap.org";
+
+type NominatimResult = {
+  place_id: number;
+  display_name: string;
+  address?: {
+    road?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    postcode?: string;
+  };
+};
+
+type ZipResponse = {
+  "post code": string;
+  places?: Array<{
+    "place name": string;
+    state?: string;
+    latitude?: string;
+    longitude?: string;
+  }>;
+};
 
 export function SavingsCalculator() {
   const [postalCode, setPostalCode] = useState("");
@@ -11,6 +36,8 @@ export function SavingsCalculator() {
   const [cities, setCities] = useState<string[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
   const [street, setStreet] = useState("");
+  const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
+  const [loadingStreets, setLoadingStreets] = useState(false);
   const [houseNumber, setHouseNumber] = useState("");
   const [provider, setProvider] = useState("");
   const [electricity, setElectricity] = useState(3000);
@@ -25,22 +52,96 @@ export function SavingsCalculator() {
     if (!/^\d{5}$/.test(postalCode)) {
       setCities([]);
       setCity("");
+      setStreet("");
+      setStreetSuggestions([]);
       return;
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     setLoadingCities(true);
+    setCities([]);
     setCity("");
-    fetch(`/api/address/postal?plz=${postalCode}`)
-      .then((r) => r.ok ? r.json() : { locations: [] })
-      .then((data) => {
-        if (!cancelled) setCities((data.locations ?? []).map((x: { city: string }) => x.city));
-      })
-      .catch(() => { if (!cancelled) setCities([]); })
-      .finally(() => { if (!cancelled) setLoadingCities(false); });
+    setStreet("");
+    setStreetSuggestions([]);
 
-    return () => { cancelled = true; };
+    fetch(`${ZIP_API}/${postalCode}`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("postal lookup");
+        return (await response.json()) as ZipResponse;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const unique = Array.from(new Set((data.places ?? []).map((place) => place["place name"]).filter(Boolean)));
+        setCities(unique);
+        if (unique.length === 1) setCity(unique[0]);
+      })
+      .catch(() => {
+        if (!cancelled) setCities([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCities(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [postalCode]);
+
+  useEffect(() => {
+    if (!/^\d{5}$/.test(postalCode) || !city || street.trim().length < 2) {
+      setStreetSuggestions([]);
+      setLoadingStreets(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLoadingStreets(true);
+      const params = new URLSearchParams({
+        street: street.trim(),
+        city,
+        postalcode: postalCode,
+        countrycodes: "de",
+        format: "jsonv2",
+        addressdetails: "1",
+        limit: "12",
+      });
+
+      fetch(`${NOMINATIM_API}/search?${params.toString()}`, {
+        signal: controller.signal,
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("street lookup");
+          return (await response.json()) as NominatimResult[];
+        })
+        .then((results) => {
+          if (cancelled) return;
+          const names = results
+            .map((result) => result.address?.road || "")
+            .filter(Boolean)
+            .filter((name, index, all) => all.indexOf(name) === index)
+            .slice(0, 8);
+          setStreetSuggestions(names);
+        })
+        .catch(() => {
+          if (!cancelled) setStreetSuggestions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingStreets(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [postalCode, city, street]);
 
   const providerMatches = useMemo(() => {
     const q = provider.toLowerCase().trim();
@@ -58,14 +159,26 @@ export function SavingsCalculator() {
     setDetecting(true);
     navigator.geolocation.getCurrentPosition(async (position) => {
       try {
-        const response = await fetch(`/api/location/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}`, { cache: "no-store" });
+        const params = new URLSearchParams({
+          lat: String(position.coords.latitude),
+          lon: String(position.coords.longitude),
+          format: "jsonv2",
+          addressdetails: "1",
+        });
+        const response = await fetch(`${NOMINATIM_API}/reverse?${params.toString()}`, {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
         if (!response.ok) throw new Error("location");
-        const data = await response.json();
-        setPostalCode(data.postalCode || "");
-        setCity(data.city || "");
-        setStreet(data.street || "");
-        setHouseNumber(data.houseNumber || "");
-      } finally { setDetecting(false); }
+        const data = (await response.json()) as NominatimResult;
+        const address = data.address ?? {};
+        setPostalCode(address.postcode || "");
+        setCity(address.city || address.town || address.village || address.municipality || "");
+        setStreet(address.road || "");
+        setHouseNumber("");
+      } finally {
+        setDetecting(false);
+      }
     }, () => setDetecting(false), { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
   }
 
@@ -87,13 +200,16 @@ export function SavingsCalculator() {
             </div>
           )}
           {city && <p className="mt-2 text-sm text-[#66d5ff]">Ort: <strong>{city}</strong></p>}
-          {!loadingCities && /^\d{5}$/.test(postalCode) && cities.length === 0 && <p className="mt-2 text-xs text-slate-500">Kein Ort automatisch gefunden. Bitte prüfen Sie die PLZ.</p>}
+          {!loadingCities && /^\d{5}$/.test(postalCode) && cities.length === 0 && <p className="mt-2 text-xs text-slate-500">Für diese PLZ wurde kein Ort gefunden. Bitte prüfen Sie die Eingabe.</p>}
         </div>
 
         <div className="relative">
           <label className="text-sm font-semibold text-slate-300">Straße</label>
           <input value={street} onChange={(e) => { setStreet(e.target.value); setShowStreets(true); }} onFocus={() => setShowStreets(true)} placeholder={city ? `Straße in ${city}` : "Erst Ort auswählen"} disabled={!city} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff] disabled:opacity-40" />
-          {showStreets && city && street && <div className="absolute z-20 mt-1 w-full rounded-xl border border-white/10 bg-[#081725] p-4 text-xs text-slate-400">Straßenvervollständigung wird mit der ausgewählten PLZ und dem Ort verbunden.</div>}
+          {showStreets && city && street && (streetSuggestions.length > 0 || loadingStreets) && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725] shadow-2xl">
+            {loadingStreets && <div className="px-4 py-3 text-xs text-slate-400">Straßen werden gesucht …</div>}
+            {!loadingStreets && streetSuggestions.map((item) => <button key={item} type="button" onClick={() => { setStreet(item); setStreetSuggestions([]); setShowStreets(false); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-[#19b7ff]/10">{item}</button>)}
+          </div>}
         </div>
 
         <div>
@@ -107,6 +223,8 @@ export function SavingsCalculator() {
           {showProviders && providerMatches.length > 0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725] shadow-2xl">{providerMatches.map((item) => <button key={item} type="button" onClick={() => { setProvider(item); setShowProviders(false); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-white/10">{item}</button>)}</div>}
         </div>
       </div>
+
+      <p className="text-[11px] leading-4 text-slate-600">Adressdaten: Zippopotam.us und OpenStreetMap Nominatim. Straßen- und Ortsdaten werden nur zur Autovervollständigung abgefragt.</p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <button type="button" onClick={() => setCustomerType("private")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "private" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Privathaushalt</button>
