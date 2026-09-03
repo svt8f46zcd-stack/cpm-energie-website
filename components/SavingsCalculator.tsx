@@ -5,6 +5,7 @@ import Link from "next/link";
 
 const PROVIDERS = ["E.ON", "EnBW", "Vattenfall", "RheinEnergie", "Mainova", "Stadtwerke München", "Yello Strom", "LichtBlick", "Naturstrom", "EWE", "Energieversorgung Mittelrhein", "Sonstiger Anbieter"];
 const NOMINATIM_API = "https://nominatim.openstreetmap.org";
+const OPENPLZ_API = "https://openplzapi.org/de";
 
 type NominatimResult = {
   place_id: number;
@@ -17,6 +18,12 @@ type NominatimResult = {
     municipality?: string;
     postcode?: string;
   };
+};
+
+type OpenPlzLocality = {
+  postalCode?: string;
+  name?: string;
+  municipality?: { name?: string };
 };
 
 export function SavingsCalculator() {
@@ -54,38 +61,61 @@ export function SavingsCalculator() {
     setStreet("");
     setStreetSuggestions([]);
 
-    const params = new URLSearchParams({
-      postalcode: postalCode,
-      country: "Germany",
-      format: "jsonv2",
-      addressdetails: "1",
-      limit: "50",
-    });
+    async function loadCities() {
+      try {
+        const response = await fetch(`${OPENPLZ_API}/Localities?postalCode=${encodeURIComponent(postalCode)}&page=1&pageSize=50`, {
+          signal: controller.signal,
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
 
-    fetch(`${NOMINATIM_API}/search?${params.toString()}`, {
-      signal: controller.signal,
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("postal lookup");
-        return (await response.json()) as NominatimResult[];
-      })
-      .then((results) => {
+        if (!response.ok) throw new Error("openplz lookup");
+
+        const results = (await response.json()) as OpenPlzLocality[];
+        const unique = Array.from(new Set(
+          results
+            .map((result) => result.name || result.municipality?.name || "")
+            .map((name) => name.trim())
+            .filter(Boolean),
+        ));
+
         if (cancelled) return;
-        const unique = Array.from(new Set(results.map((result) => {
-          const address = result.address ?? {};
-          return address.city || address.town || address.village || address.municipality || "";
-        }).filter(Boolean)));
         setCities(unique);
         if (unique.length === 1) setCity(unique[0]);
-      })
-      .catch(() => {
-        if (!cancelled) setCities([]);
-      })
-      .finally(() => {
+      } catch {
+        if (cancelled) return;
+
+        try {
+          const params = new URLSearchParams({
+            postalcode: postalCode,
+            country: "Germany",
+            format: "jsonv2",
+            addressdetails: "1",
+            limit: "50",
+          });
+          const response = await fetch(`${NOMINATIM_API}/search?${params.toString()}`, {
+            signal: controller.signal,
+            cache: "no-store",
+            headers: { Accept: "application/json" },
+          });
+          if (!response.ok) throw new Error("postal fallback");
+          const results = (await response.json()) as NominatimResult[];
+          const unique = Array.from(new Set(results.map((result) => {
+            const address = result.address ?? {};
+            return address.city || address.town || address.village || address.municipality || "";
+          }).filter(Boolean)));
+          if (cancelled) return;
+          setCities(unique);
+          if (unique.length === 1) setCity(unique[0]);
+        } catch {
+          if (!cancelled) setCities([]);
+        }
+      } finally {
         if (!cancelled) setLoadingCities(false);
-      });
+      }
+    }
+
+    loadCities();
 
     return () => {
       cancelled = true;
@@ -186,12 +216,17 @@ export function SavingsCalculator() {
             <button type="button" onClick={detectLocation} disabled={detecting} className="rounded-xl border border-[#19b7ff]/30 px-4 text-sm font-semibold text-[#66d5ff] hover:bg-[#19b7ff]/10">{detecting ? "…" : "📍"}</button>
           </div>
           {loadingCities && <p className="mt-2 text-xs text-slate-500">Orte werden gesucht …</p>}
-          {!loadingCities && cities.length > 0 && !city && (
+          {!loadingCities && cities.length > 0 && (
             <div className="mt-2 overflow-hidden rounded-xl border border-[#19b7ff]/30 bg-[#081725] shadow-xl">
-              {cities.map((item) => <button key={item} type="button" onClick={() => setCity(item)} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-[#19b7ff]/10">{item}</button>)}
+              <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#66d5ff]">Ort auswählen</p>
+              {cities.map((item) => (
+                <button key={item} type="button" onClick={() => { setCity(item); setStreet(""); setStreetSuggestions([]); }} className={`block w-full border-t border-white/5 px-4 py-3 text-left text-sm transition hover:bg-[#19b7ff]/10 ${city === item ? "bg-[#19b7ff]/10 text-[#66d5ff]" : "text-slate-200"}`}>
+                  {item}
+                </button>
+              ))}
             </div>
           )}
-          {city && <p className="mt-2 text-sm text-[#66d5ff]">Ort: <strong>{city}</strong></p>}
+          {city && <p className="mt-2 text-sm text-[#66d5ff]">Ausgewählter Ort: <strong>{city}</strong></p>}
           {!loadingCities && /^\d{5}$/.test(postalCode) && cities.length === 0 && <p className="mt-2 text-xs text-slate-500">Für diese PLZ wurde kein Ort gefunden. Bitte prüfen Sie die Eingabe.</p>}
         </div>
 
@@ -216,7 +251,7 @@ export function SavingsCalculator() {
         </div>
       </div>
 
-      <p className="text-[11px] leading-4 text-slate-600">Adressdaten: OpenStreetMap Nominatim. Straßen- und Ortsdaten werden nur zur Autovervollständigung abgefragt.</p>
+      <p className="text-[11px] leading-4 text-slate-600">Adressdaten: OpenPLZ und OpenStreetMap Nominatim. Straßen- und Ortsdaten werden nur zur Autovervollständigung abgefragt.</p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <button type="button" onClick={() => setCustomerType("private")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "private" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Privathaushalt</button>
