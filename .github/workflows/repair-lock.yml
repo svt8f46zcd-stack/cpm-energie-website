@@ -25,7 +25,7 @@ jobs:
           node-version: 22
 
       - name: Generate lockfile from package.json
-        run: npm install --package-lock-only --ignore-scripts
+        run: npm install --ignore-scripts --no-audit --no-fund
 
       - name: Commit repaired lockfile
         run: |
