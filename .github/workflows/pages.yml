@@ -25,7 +25,7 @@ jobs:
           cache: npm
       - uses: actions/configure-pages@v5
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Build static site
         id: build
         shell: bash
