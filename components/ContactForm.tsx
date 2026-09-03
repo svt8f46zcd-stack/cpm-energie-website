@@ -141,24 +141,21 @@ export function ContactForm() {
         {addressLoading && <span className="text-xs text-[#66d5ff]">wird erkannt …</span>}
       </div>
       <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
-        <label className="relative block sm:col-span-2"><span className="sr-only">PLZ</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" maxLength={5} value={defaults.plz} onChange={(e) => updateAddress("plz", e.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="PLZ" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-[#19b7ff]" /></label>
+        <label className="relative block sm:col-span-2"><span className="sr-only">PLZ</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" maxLength={5} required value={defaults.plz} onChange={(e) => updateAddress("plz", e.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="PLZ" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-[#19b7ff]" /></label>
 
-        <label className="relative block sm:col-span-2"><span className="sr-only">Ort</span><select name="city" value={defaults.ort} onChange={(e) => updateAddress("ort", e.target.value)} className="w-full appearance-none rounded-xl border border-white/10 bg-[#0b1b30] px-4 py-3 outline-none transition focus:border-[#19b7ff]" disabled={citySuggestions.length === 0}>
-          <option value="">{citySuggestions.length > 1 ? "Ort auswählen" : citySuggestions.length === 1 ? "Ort wird erkannt …" : "Ort"}</option>
-          {citySuggestions.map((city) => <option key={`${city.postalCode}-${city.name}`} value={city.name}>{city.name}</option>)}
-        </select></label>
+        <label className="relative block sm:col-span-2"><span className="sr-only">Ort</span><input name="city" autoComplete="address-level2" required value={defaults.ort} onChange={(e) => updateAddress("ort", e.target.value)} list="cpm-city-suggestions" placeholder="Ort wird automatisch erkannt …" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-[#19b7ff]" /><datalist id="cpm-city-suggestions">{citySuggestions.map((city) => <option key={`${city.postalCode}-${city.name}`} value={city.name} />)}</datalist></label>
 
-        <label className="relative block"><span className="sr-only">Straße</span><input name="street" autoComplete="street-address" value={defaults.strasse} onChange={(e) => updateAddress("strasse", e.target.value)} placeholder="Straße eingeben …" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-[#19b7ff]" />
+        <label className="relative block"><span className="sr-only">Straße</span><input name="street" autoComplete="street-address" required value={defaults.strasse} onChange={(e) => updateAddress("strasse", e.target.value)} placeholder="Straße eingeben …" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-[#19b7ff]" />
           {streetLoading && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#66d5ff]">Suche …</span>}
           {streetSuggestions.length > 0 && <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl border border-white/10 bg-[#07182a] shadow-2xl shadow-black/50">
             {streetSuggestions.map((street) => <button key={street.name} type="button" onClick={() => { updateAddress("strasse", street.name); setStreetSuggestions([]); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 transition hover:bg-[#19b7ff]/10 hover:text-white">{street.name}</button>)}
           </div>}
         </label>
-        <input name="houseNumber" inputMode="text" autoComplete="address-line2" value={defaults.hausnummer} onChange={(e) => updateAddress("hausnummer", e.target.value)} placeholder="Hausnummer" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-[#19b7ff]" />
+        <input name="houseNumber" inputMode="text" autoComplete="address-line2" required value={defaults.hausnummer} onChange={(e) => updateAddress("hausnummer", e.target.value)} placeholder="Hausnummer" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-[#19b7ff]" />
         <input name="provider" value={defaults.anbieter} onChange={(e) => updateAddress("anbieter", e.target.value)} placeholder="Aktueller Anbieter" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-[#19b7ff] sm:col-span-2" />
       </div>
-      {defaults.plz.length === 5 && citySuggestions.length > 1 && <p className="mt-3 text-xs text-slate-500">Für diese PLZ gibt es mehrere Orte. Bitte den passenden Ort auswählen.</p>}
-      {defaults.plz.length === 5 && citySuggestions.length === 0 && !addressLoading && <p className="mt-3 text-xs text-amber-300/80">PLZ konnte nicht automatisch zugeordnet werden. Sie können den Ort trotzdem manuell eingeben.</p>}
+      {defaults.plz.length === 5 && citySuggestions.length > 1 && <p className="mt-3 text-xs text-slate-500">Für diese PLZ gibt es mehrere Orte. Bitte den passenden Ort auswählen oder eingeben.</p>}
+      {defaults.plz.length === 5 && citySuggestions.length === 0 && !addressLoading && <p className="mt-3 text-xs text-amber-300/80">PLZ konnte nicht automatisch zugeordnet werden. Der Ort kann trotzdem manuell eingegeben werden.</p>}
     </div>
 
     <label className="mt-5 block text-sm font-semibold text-slate-300">Nachricht<textarea name="message" rows={5} className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 p-4 outline-none focus:border-[#19b7ff]" placeholder="Zum Beispiel: Ich möchte meinen aktuellen Stromtarif prüfen lassen." defaultValue={defaults.anbieter ? `Bitte meinen Tarif prüfen. Aktueller Anbieter: ${defaults.anbieter}.` : ""} /></label>
