@@ -1,119 +1,102 @@
 "use client";
 
 import { useRef } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Sparkles, Sphere, MeshDistortMaterial, Environment, Float, Trail } from "@react-three/drei";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Environment, Float, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
 
-function OrbitRing({ radius, speed, tilt, opacity }: { radius: number; speed: number; tilt: [number, number, number]; opacity: number }) {
-  const ring = useRef<THREE.Mesh>(null);
+function WindTurbine({ position, scale = 1, speed = 1 }: { position: [number, number, number]; scale?: number; speed?: number }) {
+  const rotor = useRef<THREE.Group>(null);
   useFrame((state) => {
-    if (!ring.current) return;
-    ring.current.rotation.z = state.clock.getElapsedTime() * speed;
-    ring.current.rotation.x = tilt[0] + Math.sin(state.clock.getElapsedTime() * 0.35) * 0.05;
-  });
-  return (
-    <mesh ref={ring} rotation={tilt}>
-      <torusGeometry args={[radius, 0.014, 12, 180]} />
-      <meshBasicMaterial color="#62dcff" transparent opacity={opacity} />
-    </mesh>
-  );
-}
-
-function EnergyNode({ index, radius }: { index: number; radius: number }) {
-  const node = useRef<THREE.Mesh>(null);
-  useFrame((state) => {
-    if (!node.current) return;
-    const t = state.clock.getElapsedTime() * (0.35 + index * 0.025) + index * 1.7;
-    node.current.position.set(Math.cos(t) * radius, Math.sin(t * 1.12) * radius * 0.62, Math.sin(t) * radius * 0.48);
-    node.current.rotation.y += 0.015;
-  });
-  return (
-    <Trail width={0.035} length={2.5} color="#5edcff" attenuation={(t) => t * t}>
-      <Sphere ref={node} args={[0.055, 16, 16]}>
-        <meshBasicMaterial color="#b8f4ff" />
-      </Sphere>
-    </Trail>
-  );
-}
-
-function EnergyCore() {
-  const core = useRef<THREE.Mesh>(null);
-  const shell = useRef<THREE.Mesh>(null);
-  const halo = useRef<THREE.Mesh>(null);
-  const { mouse, viewport } = useThree();
-
-  useFrame((state) => {
-    if (!core.current || !shell.current || !halo.current) return;
-    const t = state.clock.getElapsedTime();
-    const targetX = (mouse.x * viewport.width) / 10;
-    const targetY = (mouse.y * viewport.height) / 10;
-
-    core.current.position.x += (targetX - core.current.position.x) * 0.035;
-    core.current.position.y += (targetY - core.current.position.y) * 0.035;
-    shell.current.position.copy(core.current.position);
-    halo.current.position.copy(core.current.position);
-
-    core.current.rotation.y = t * 0.22;
-    core.current.rotation.x = Math.sin(t * 0.27) * 0.14;
-    shell.current.rotation.y = -t * 0.1;
-    shell.current.rotation.z = Math.sin(t * 0.2) * 0.1;
-    halo.current.rotation.z = t * 0.08;
-
-    const pulse = 1 + Math.sin(t * 1.55) * 0.035;
-    core.current.scale.setScalar(pulse);
-    halo.current.scale.setScalar(1 + Math.sin(t * 1.2) * 0.035);
+    if (rotor.current) rotor.current.rotation.z = state.clock.getElapsedTime() * speed * 2.1;
   });
 
   return (
-    <group>
-      <Float speed={1.25} rotationIntensity={0.2} floatIntensity={0.28}>
-        <Sphere ref={core} args={[1.28, 96, 96]}>
-          <MeshDistortMaterial
-            color="#20b8ff"
-            emissive="#0877c9"
-            emissiveIntensity={1.35}
-            roughness={0.1}
-            metalness={0.58}
-            distort={0.3}
-            speed={1.45}
-          />
-        </Sphere>
-      </Float>
-
-      <Sphere ref={shell} args={[1.52, 64, 64]}>
-        <meshPhysicalMaterial
-          color="#72e5ff"
-          transparent
-          opacity={0.085}
-          roughness={0.06}
-          metalness={0.25}
-          transmission={0.78}
-          thickness={0.4}
-          ior={1.25}
-        />
-      </Sphere>
-
-      <Sphere ref={halo} args={[1.76, 32, 32]}>
-        <meshBasicMaterial color="#19b7ff" transparent opacity={0.035} blending={THREE.AdditiveBlending} />
-      </Sphere>
-
-      <OrbitRing radius={1.72} speed={0.22} tilt={[Math.PI / 2.5, 0, 0]} opacity={0.72} />
-      <OrbitRing radius={1.9} speed={-0.14} tilt={[-Math.PI / 3.2, 0.2, 0]} opacity={0.42} />
-      <OrbitRing radius={2.08} speed={0.09} tilt={[0.7, -0.5, 0.4]} opacity={0.24} />
-
-      {Array.from({ length: 8 }, (_, index) => <EnergyNode key={index} index={index} radius={1.82 + (index % 3) * 0.12} />)}
+    <group position={position} scale={scale}>
+      <mesh position={[0, -0.72, 0]}>
+        <coneGeometry args={[0.17, 2.05, 20]} />
+        <meshStandardMaterial color="#d9e5ed" metalness={0.65} roughness={0.25} />
+      </mesh>
+      <mesh position={[0, 0.33, 0]}>
+        <sphereGeometry args={[0.2, 24, 24]} />
+        <meshStandardMaterial color="#edf8ff" metalness={0.7} roughness={0.18} emissive="#168fd0" emissiveIntensity={0.16} />
+      </mesh>
+      <group ref={rotor} position={[0, 0.33, 0.19]}>
+        <mesh rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.07, 0.07, 0.18, 16]} />
+          <meshStandardMaterial color="#ffffff" metalness={0.7} roughness={0.18} />
+        </mesh>
+        {Array.from({ length: 3 }, (_, i) => (
+          <mesh key={i} position={[0, 0.55, 0]} rotation={[0, 0, (i * Math.PI * 2) / 3]}>
+            <boxGeometry args={[0.09, 1.05, 0.035]} />
+            <meshStandardMaterial color="#f4f9fc" metalness={0.35} roughness={0.22} />
+          </mesh>
+        ))}
+      </group>
+      <mesh position={[0, -1.77, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.42, 24]} />
+        <meshBasicMaterial color="#19b7ff" transparent opacity={0.16} />
+      </mesh>
     </group>
   );
 }
 
-function Lighting() {
+function SolarArray({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+  const panel = useRef<THREE.Group>(null);
+  useFrame((state) => {
+    if (!panel.current) return;
+    panel.current.rotation.y = -0.35 + Math.sin(state.clock.getElapsedTime() * 0.22) * 0.035;
+  });
+
+  return (
+    <group ref={panel} position={position} scale={scale} rotation={[-0.18, -0.35, 0]}>
+      <mesh position={[0, -0.12, 0]}>
+        <boxGeometry args={[2.8, 0.08, 1.65]} />
+        <meshStandardMaterial color="#0b2e55" metalness={0.8} roughness={0.2} emissive="#063b6a" emissiveIntensity={0.22} />
+      </mesh>
+      {[-0.92, -0.46, 0, 0.46, 0.92].map((x) => (
+        <mesh key={`v-${x}`} position={[x, -0.065, 0]}>
+          <boxGeometry args={[0.018, 0.018, 1.58]} />
+          <meshBasicMaterial color="#73dfff" transparent opacity={0.55} />
+        </mesh>
+      ))}
+      {[-0.52, 0, 0.52].map((z) => (
+        <mesh key={`h-${z}`} position={[0, -0.06, z]}>
+          <boxGeometry args={[2.72, 0.018, 0.018]} />
+          <meshBasicMaterial color="#73dfff" transparent opacity={0.5} />
+        </mesh>
+      ))}
+      <mesh position={[0, -0.42, 0]}>
+        <boxGeometry args={[0.08, 0.62, 0.08]} />
+        <meshStandardMaterial color="#aebbc5" metalness={0.75} roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+function Scene() {
   return (
     <>
-      <ambientLight intensity={0.55} />
-      <pointLight position={[3.5, 3.5, 4]} intensity={2.5} color="#7ae5ff" />
-      <pointLight position={[-4, -2, -2]} intensity={1.2} color="#167de5" />
-      <pointLight position={[0, 0, 5]} intensity={0.95} color="#d8f7ff" />
+      <ambientLight intensity={0.75} />
+      <directionalLight position={[4, 6, 5]} intensity={3.2} color="#dff7ff" />
+      <pointLight position={[-3, 2, 3]} intensity={2.2} color="#19b7ff" />
+      <pointLight position={[3, -1, 2]} intensity={1.4} color="#1478ff" />
+
+      <Float speed={0.7} rotationIntensity={0.02} floatIntensity={0.06}>
+        <WindTurbine position={[-1.65, 0.35, -0.5]} scale={0.72} speed={0.78} />
+        <WindTurbine position={[0, 0.65, 0]} scale={1.05} speed={0.52} />
+        <WindTurbine position={[1.7, 0.25, -0.65]} scale={0.68} speed={0.92} />
+      </Float>
+
+      <SolarArray position={[0.65, -1.38, 0.65]} scale={0.88} />
+      <SolarArray position={[-1.15, -1.62, 0.9]} scale={0.58} />
+
+      <mesh position={[0, -2.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[3.8, 64]} />
+        <meshStandardMaterial color="#041b2b" roughness={0.92} metalness={0.05} />
+      </mesh>
+      <Sparkles count={70} scale={[5.8, 4.2, 3.5]} size={1.6} speed={0.28} color="#9ce9ff" />
+      <Environment preset="night" />
     </>
   );
 }
@@ -124,12 +107,9 @@ export default function EnergyOrb() {
   }
 
   return (
-    <div className="h-[380px] w-full max-w-[470px] sm:h-[500px]" aria-hidden="true">
-      <Canvas camera={{ position: [0, 0, 5], fov: 43 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: true }}>
-        <Lighting />
-        <Environment preset="night" />
-        <EnergyCore />
-        <Sparkles count={105} scale={5.2} size={2.1} speed={0.4} color="#9ce9ff" />
+    <div className="h-[430px] w-full max-w-[540px] sm:h-[550px]" aria-hidden="true">
+      <Canvas camera={{ position: [0, 0.15, 6.2], fov: 40 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: true }}>
+        <Scene />
       </Canvas>
     </div>
   );
