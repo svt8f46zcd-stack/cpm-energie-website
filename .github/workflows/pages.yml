@@ -21,13 +21,35 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - run: npm install
-      - run: npm run build
-      - run: touch out/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+          node-version: 22
+          cache: npm
+      - uses: actions/configure-pages@v5
+      - name: Install dependencies
+        run: npm install
+      - name: Build static site
+        id: build
+        shell: bash
+        run: |
+          set +e
+          npm run build 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit $status
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpm-energie-build-log
+          path: build.log
+      - name: Prepare Pages artifact
+        if: success()
+        run: touch out/.nojekyll
+      - name: Upload Pages artifact
+        if: success()
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
+
   deploy:
     environment:
       name: github-pages
