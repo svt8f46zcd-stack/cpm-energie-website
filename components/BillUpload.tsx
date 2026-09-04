@@ -16,6 +16,52 @@ const labels: Array<[keyof BillAnalysisResult, string]> = [
   ["address", "Adresse"],
 ];
 
+function setReactInputValue(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function applyRecognizedData(result: BillAnalysisResult) {
+  const consumption = result.annualConsumptionKwh.value;
+  if (typeof consumption === "number" || typeof consumption === "string") {
+    const value = String(consumption);
+    const type = String(result.energyType.value || "").toLowerCase();
+    const numberInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'));
+    const target = type.includes("gas") ? numberInputs.find(i => i.getAttribute("placeholder")?.includes("12.000")) : numberInputs.find(i => i.getAttribute("placeholder")?.includes("3.000"));
+    if (target) setReactInputValue(target, value);
+  }
+
+  const provider = result.provider.value;
+  if (typeof provider === "string" && provider.trim()) {
+    const input = Array.from(document.querySelectorAll<HTMLInputElement>("input")).find(i => i.placeholder?.toLowerCase().includes("e.on"));
+    if (input) setReactInputValue(input, provider);
+  }
+
+  const address = result.address.value;
+  if (typeof address === "string" && address.trim()) {
+    const match = address.match(/^(.+?)\s+(\d+[a-zA-Z]?)\s*,?\s*(\d{5})\s+(.+)$/);
+    if (match) {
+      const [, street, house, postal, city] = match;
+      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("input"));
+      const plzInput = inputs.find(i => i.placeholder === "55278");
+      const streetInput = inputs.find(i => i.placeholder?.includes("Hauptstraße"));
+      const houseInput = inputs.find(i => i.placeholder?.includes("3a"));
+      if (plzInput) setReactInputValue(plzInput, postal);
+      if (streetInput) setReactInputValue(streetInput, street.trim());
+      if (houseInput) setReactInputValue(houseInput, house);
+      const cityText = Array.from(document.querySelectorAll("p")).find(p => p.textContent?.trim() === city.trim());
+      if (cityText) (cityText as HTMLElement).click();
+    }
+  }
+
+  window.setTimeout(() => {
+    const continueButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(b => b.textContent?.includes("Mit Abrechnung fortfahren"));
+    continueButton?.click();
+  }, 150);
+}
+
 export default function BillUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState("");
@@ -48,6 +94,7 @@ export default function BillUpload() {
       const result = await analyzeBill(file);
       setAnalysis(result);
       setStatus("done");
+      applyRecognizedData(result);
     } catch (err) {
       if (err instanceof Error && err.message === "BILL_ANALYSIS_ENDPOINT_MISSING") {
         setStatus("unavailable");
@@ -79,7 +126,7 @@ export default function BillUpload() {
           {analysis && (
             <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
               <p className="text-sm font-bold text-white">Erkannte Angaben</p>
-              <p className="mt-1 text-xs leading-5 text-slate-400">Bitte die Werte vor einem Vergleich prüfen. Nicht eindeutig erkannte Angaben bleiben leer.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">Die erkannten Werte wurden in den Tarifcheck übernommen. Bitte vor dem Vergleich prüfen. Nicht eindeutig erkannte Angaben bleiben leer.</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {labels.map(([key, label]) => {
                   const field = analysis[key];
