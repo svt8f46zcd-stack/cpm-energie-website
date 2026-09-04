@@ -6,6 +6,19 @@ declare global { interface Window { Tesseract?: any } }
 
 type Confidence = "high" | "medium" | "unknown";
 type NameResult = { firstName: string | null; lastName: string | null; confidence: Confidence };
+type NameCandidate = NameResult & { score: number };
+
+const TITLE = /^(?:herr|frau|herrn|fr\.?|hr\.?|mr\.?|mrs\.?|ms\.?)\s+/i;
+const LABEL = /^(?:vorname|vorn\.?|first\s*name|nachname|familienname|last\s*name|surname|name|kundenname|kunde(?:n|in)?|vertragspartner(?:in)?|rechnungs?empfänger(?:in)?|rechnungsempfänger|name\s+des\s+kunden)\s*[:.=\-]?\s*/i;
+const LABEL_INLINE = /(?:vorname|first\s*name|nachname|familienname|last\s*name|surname|kundenname|vertragspartner(?:in)?|rechnungs?empfänger(?:in)?|rechnungsempfänger|name\s+des\s+kunden)\s*[:.=\-]?\s*/i;
+const CONTEXT = /(?:ihre\s+daten|persönliche\s+daten|rechnungsadresse|rechnungsanschrift|lieferadresse|verbrauchsstelle|kundendaten|rechnungsempfänger|rechnungsempfaenger|vertragspartner|anschrift|adresse)/i;
+const STREET = /\b(?:straße|strasse|str\.?|weg|allee|platz|ring|gasse|ufer|chaussee|stieg|steig|promenade|damm)\b|\b\d{5}\b/i;
+const POSTCODE = /\b\d{5}\b/;
+const ADDRESS_NOISE = /(?:kundennummer|kunden.?nr|kundennr|vertragsnummer|vertragskonto|mandatsreferenz|rechnungsnummer|rechnungsdatum|geburtsdatum|telefon|mobil|email|e-mail|www\.|https?:\/\/|iban|bic|bank|seite\s*\d|strom|gas|energie|rechnung|tarif|verbrauch|abschlag|arbeitspreis|grundpreis|netto|brutto|mwst|kwh|ct\s*\/\s*kwh|€|eur|jahr|monat|tage|zeitraum|messstelle|zähler|zaehler|markt|netz|lieferant|lieferung|bonus|entgelt|umlage|steuer|abbuchung|zahlung|betrag|summe|kosten|preis|gutschrift)/i;
+const BAD_WORD = /^(?:the|your|their|electric|energy|invoice|customer|account|summary|total|page|amount|meter|reading|verbrauch|abrechnung|strom|gas|energie|rechnung|kunde|kundin|name|adresse|anschrift|daten|ihre|persönliche|vertragspartner|rechnungs?empfänger|lieferadresse|verbrauchsstelle|eon|e\.on|optimalstrom|seite)$/i;
+const OCR_GARBAGE = /(?:sabrez|veib|bezeich|erkannt|sicherheit|high|medium|unknown|rechnungsposition|zusammengeführt|zusammengefuehrt)/i;
+const COMPANY_WORDS = /^(?:eon|e\.on|enbw|vattenfall|yello|yello\s+strom|mainova|ente ga|entega|goldgas|rwe|innogy|swm|stadtwerke|lichtblick|naturstrom|enercity|eprimo|octopus|lekker|1komma5|tibber)$/i;
+const NAME_PARTICLES = /^(?:von|van|de|der|den|da|dos|do|di|du|la|le|del|zu|zum|zur)$/i;
 
 function loadOcr() {
   if (typeof document === "undefined") return Promise.reject(new Error("OCR_LIBRARY_LOAD_FAILED"));
@@ -36,147 +49,165 @@ async function pdfjs() {
   return pdfPromise;
 }
 
-function cleanName(value: string) {
+function clean(value: string) {
   return value
-    .replace(/[|]/g, " ")
-    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ' -]/g, " ")
+    .replace(/[|•·]/g, " ")
+    .replace(/[\u0000-\u001F]/g, " ")
+    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß'’\- ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-const honorific = /^(?:herr|frau|herrn|fr\.?|hr\.?)\s+/i;
-const fieldPrefix = /^(?:vorname|vorn\.?|nachname|familienname|name|kund(?:e|in)|vertragspartner(?:in)?|rechnungs?empfänger(?:in)?|name\s+des\s+(?:kunden|kundin))\s*[:.=\-]?\s*/i;
-const contextHeading = /(?:ihre\s+daten|persönliche\s+daten|rechnungsadresse|lieferadresse|verbrauchsstelle|kundendaten|rechnungsempfänger|rechnungsempfaenger|vertragspartner)/i;
-const streetLine = /\b(?:straße|strasse|str\.?|weg|allee|platz|ring|gasse|ufer|chaussee)\b|\b\d{5}\b/i;
-const addressNoise = /(?:kundennummer|kunden.?nr|vertragsnummer|vertragskonto|mandatsreferenz|rechnungsnummer|rechnungsdatum|geburtsdatum|telefon|email|e-mail|www\.|https?:\/\/|iban|bic|bank|seite\s*\d|strom|gas|energie|rechnung|tarif|verbrauch|abschlag|arbeitspreis|grundpreis|netto|brutto|mwst|kwh|ct\s*\/\s*kwh|€|eur|jahr|monat|tage|zeitraum|messstelle|zähler|zaehler|markt|netz|lieferant|lieferung|bonus|entgelt|umlage|steuer)/i;
-const badWord = /^(?:the|your|their|electric|energy|invoice|customer|account|summary|total|page|amount|meter|reading|verbrauch|abrechnung|strom|gas|energie|rechnung|kunde|kundin|name|adresse|anschrift|daten|ihre|persönliche|vertragspartner|rechnungs?empfänger|lieferadresse|verbrauchsstelle|eon|e\.on|optimalstrom)$/i;
-const corrupted = /(?:zv|vz|vb|bv|gq|qg|qx|xq|jv|vj|wq|qw|kq|qk)/i;
-
 function normalizeToken(token: string) {
-  return token
-    .replace(/[0O](?=[a-zäöü])/g, "o")
-    .replace(/[1lI](?=[a-zäöü])/g, "l")
-    .replace(/\s+/g, "")
+  let value = token
+    .replace(/[“”„]/g, "")
+    .replace(/[0O](?=[a-zäöüß])/g, "o")
+    .replace(/[1I](?=[a-zäöüß])/g, "l")
     .trim();
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function validToken(token: string) {
   const value = normalizeToken(token);
-  if (value.length < 2 || value.length > 35) return false;
-  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'’-]*$/.test(value)) return false;
-  if (badWord.test(value) || addressNoise.test(value) || corrupted.test(value)) return false;
-  if (/(.)\1\1/.test(value.toLocaleLowerCase("de-DE"))) return false;
   const lower = value.toLocaleLowerCase("de-DE");
-  const vowels = (lower.match(/[aeiouäöü]/g) || []).length;
-  if (value.length >= 7 && vowels / value.length < 0.22) return false;
-  if (value.length >= 10 && /[^aeiouäöü]{4,}/i.test(value)) return false;
+  if (value.length < 2 || value.length > 35) return false;
+  if (!/^[A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß][A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß'’\-]*$/.test(value)) return false;
+  if (BAD_WORD.test(lower) || COMPANY_WORDS.test(lower) || ADDRESS_NOISE.test(lower) || OCR_GARBAGE.test(lower)) return false;
+  if (/\d/.test(value)) return false;
+  if (/(.)\1\1/.test(lower)) return false;
+  const letters = lower.replace(/[^a-zäöüß]/g, "");
+  const vowels = (letters.match(/[aeiouäöü]/g) || []).length;
+  if (letters.length >= 7 && vowels / letters.length < 0.20) return false;
+  if (letters.length >= 11 && /[^aeiouäöü]{5,}/i.test(letters)) return false;
   return true;
 }
 
-function candidate(value: string) {
-  const withoutTitle = value.replace(honorific, "");
-  const parts = cleanName(withoutTitle).split(" ").filter(Boolean).map(normalizeToken);
-  if (parts.length < 2 || parts.length > 4) return null;
+function makeCandidate(value: string): { firstName: string; lastName: string } | null {
+  const withoutTitle = value.replace(TITLE, "");
+  const parts = clean(withoutTitle).split(" ").filter(Boolean).map(normalizeToken);
+  if (parts.length < 2 || parts.length > 5) return null;
   if (!parts.every(validToken)) return null;
-  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+
+  let first = parts[0];
+  let lastParts = parts.slice(1);
+  if (NAME_PARTICLES.test(lastParts[0])) {
+    lastParts = lastParts.slice(0, 3).concat(lastParts.slice(3));
+  }
+  const last = lastParts.join(" ");
+  if (!validToken(first) || !last || last.length > 55) return null;
+  if (first.toLocaleLowerCase("de-DE") === last.toLocaleLowerCase("de-DE")) return null;
+  return { firstName: first, lastName: last };
 }
 
-function candidateFromAdjacentLines(lines: string[], index: number) {
-  const current = lines[index] || "";
-  const next = lines[index + 1] || "";
+function scoreName(c: { firstName: string; lastName: string }, source: string, bonus: number) {
+  const first = c.firstName.toLocaleLowerCase("de-DE");
+  const last = c.lastName.toLocaleLowerCase("de-DE");
+  let score = bonus;
+  if (TITLE.test(source)) score += 45;
+  if (/\b(?:vorname|nachname|familienname|first\s*name|last\s*name|surname)\b/i.test(source)) score += 55;
+  if (/^[A-ZÄÖÜ][a-zäöüß'’\-]+\s+[A-ZÄÖÜ][a-zäöüß'’\-]+(?:\s+[A-ZÄÖÜ][a-zäöüß'’\-]+)?$/.test(c.firstName + " " + c.lastName)) score += 10;
+  if (first.length >= 3) score += 4;
+  if (last.length >= 4) score += 4;
+  if (NAME_PARTICLES.test(last.split(" ")[0])) score += 3;
+  return score;
+}
 
-  if (honorific.test(current)) {
-    const direct = candidate(current);
-    if (direct) return direct;
-  }
-  if (honorific.test(next)) {
-    const direct = candidate(next);
-    if (direct) return direct;
-  }
+function resultFromCandidates(candidates: NameCandidate[]): NameResult {
+  if (!candidates.length) return { firstName: null, lastName: null, confidence: "unknown" };
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  const second = candidates[1];
+  const margin = second ? best.score - second.score : 99;
+  if (best.score >= 100 && margin >= 12) return { firstName: best.firstName, lastName: best.lastName, confidence: "high" };
+  if (best.score >= 72 && margin >= 8) return { firstName: best.firstName, lastName: best.lastName, confidence: "medium" };
+  return { firstName: null, lastName: null, confidence: "unknown" };
+}
 
-  const strippedCurrent = current.replace(fieldPrefix, "").trim();
-  const strippedNext = next.replace(fieldPrefix, "").trim();
-  const joined = `${strippedCurrent} ${strippedNext}`.trim();
-  const pair = candidate(joined);
-  if (pair) return pair;
-
-  return null;
+function linesFromText(text: string) {
+  return text.split(/\n+/).map(v => v.replace(/\s+/g, " ").trim()).filter(Boolean);
 }
 
 function extractName(text: string): NameResult {
-  const lines = text
-    .split(/\n+/)
-    .map(v => v.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+  const lines = linesFromText(text);
+  const candidates: NameCandidate[] = [];
 
-  let firstName: string | null = null;
-  let lastName: string | null = null;
-  let confidence: Confidence = "unknown";
-
-  // 1. Highest confidence: explicit Vorname/Nachname or salutation.
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const firstMatch = line.match(/^(?:vorname|vorn\.?)\s*[:.=\-]?\s*(.+)$/i);
-    if (firstMatch) {
-      const p = candidate(`X ${firstMatch[1]}`);
-      if (p) firstName = p.lastName;
+    const next = lines[i + 1] || "";
+    const prev = lines[i - 1] || "";
+
+    const titleCandidate = makeCandidate(line);
+    if (titleCandidate && TITLE.test(line)) candidates.push({ ...titleCandidate, confidence: "high", score: scoreName(titleCandidate, line, 105) });
+
+    const explicit = line.match(/^(?:vorname|vorn\.?|first\s*name)\s*[:.=\-]?\s*(.+)$/i);
+    if (explicit) {
+      const first = clean(explicit[1]).split(" ")[0];
+      const nextLast = clean(next.replace(/^(?:nachname|familienname|last\s*name|surname)\s*[:.=\-]?\s*/i, ""));
+      if (validToken(first) && validToken(nextLast) && !ADDRESS_NOISE.test(nextLast)) candidates.push({ firstName: normalizeToken(first), lastName: normalizeToken(nextLast), confidence: "high", score: 155 });
+      const pair = makeCandidate(`${first} ${nextLast}`);
+      if (pair) candidates.push({ ...pair, confidence: "high", score: 150 });
     }
 
-    const lastMatch = line.match(/^(?:nachname|familienname)\s*[:.=\-]?\s*(.+)$/i);
-    if (lastMatch) {
-      const value = cleanName(lastMatch[1]);
-      if (value.split(" ").length === 1 && validToken(value)) lastName = normalizeToken(value);
+    const explicitLast = line.match(/^(?:nachname|familienname|last\s*name|surname)\s*[:.=\-]?\s*(.+)$/i);
+    if (explicitLast) {
+      const firstLine = clean(prev.replace(/^(?:vorname|vorn\.?|first\s*name)\s*[:.=\-]?\s*/i, ""));
+      const last = clean(explicitLast[1]);
+      if (validToken(firstLine) && validToken(last)) candidates.push({ firstName: normalizeToken(firstLine), lastName: normalizeToken(last), confidence: "high", score: 150 });
     }
 
-    if (honorific.test(line)) {
-      const p = candidate(line);
-      if (p) return { ...p, confidence: "high" };
-    }
-  }
-  if (firstName && lastName) return { firstName, lastName, confidence: "high" };
-
-  // 2. Explicit customer/recipient labels. Never accept a line containing billing noise.
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (!/(?:rechnungs?empfänger|vertragspartner|kunde(?:n)?daten|name\s+des\s+kunden|kund(?:e|in))/i.test(line)) continue;
-
-    const inline = line.replace(/.*?(?:rechnungs?empfänger|vertragspartner(?:in)?|kunde(?:n)?daten|name\s+des\s+kunden|kund(?:e|in))\s*[:.=\-]?\s*/i, "").trim();
-    if (inline && !addressNoise.test(inline)) {
-      const p = candidate(inline);
-      if (p) return { ...p, confidence: "high" };
+    if (LABEL_INLINE.test(line) && !ADDRESS_NOISE.test(line)) {
+      const value = clean(line.replace(LABEL_INLINE, ""));
+      const pair = makeCandidate(value);
+      if (pair) candidates.push({ ...pair, confidence: "high", score: scoreName(pair, line, 135) });
     }
 
-    for (let j = i + 1; j <= Math.min(i + 5, lines.length - 1); j++) {
-      if (streetLine.test(lines[j]) || addressNoise.test(lines[j])) continue;
-      const p = candidate(lines[j]);
-      if (p) return { ...p, confidence: "high" };
-      const pair = candidateFromAdjacentLines(lines, j);
-      if (pair) return { ...pair, confidence: "high" };
+    if (/(?:rechnungs?empfänger|vertragspartner|kundendaten|kundenname|name\s+des\s+kunden)/i.test(line)) {
+      const inline = clean(line.replace(/.*?(?:rechnungs?empfänger|vertragspartner(?:in)?|kundendaten|kundenname|name\s+des\s+kunden)\s*[:.=\-]?\s*/i, ""));
+      const pair = makeCandidate(inline);
+      if (pair) candidates.push({ ...pair, confidence: "high", score: scoreName(pair, line, 140) });
+      for (let j = i + 1; j <= Math.min(i + 4, lines.length - 1); j++) {
+        if (ADDRESS_NOISE.test(lines[j]) || STREET.test(lines[j])) continue;
+        const p = makeCandidate(lines[j]);
+        if (p) candidates.push({ ...p, confidence: "high", score: scoreName(p, lines[j], 125 - (j - i) * 8) });
+      }
     }
-  }
 
-  // 3. Name directly before the street/ZIP line. This is common on utility bills.
-  for (let i = 1; i < lines.length; i++) {
-    if (!streetLine.test(lines[i])) continue;
-    const previous = lines[i - 1];
-    if (addressNoise.test(previous)) continue;
-    const p = candidate(previous);
-    if (p) return { ...p, confidence: "high" };
-    const pair = candidateFromAdjacentLines(lines, i - 2);
-    if (pair) return { ...pair, confidence: "high" };
-  }
+    if (STREET.test(line)) {
+      for (let j = Math.max(0, i - 3); j < i; j++) {
+        const possible = lines[j];
+        if (ADDRESS_NOISE.test(possible) || POSTCODE.test(possible) || STREET.test(possible)) continue;
+        const p = makeCandidate(possible);
+        if (p) candidates.push({ ...p, confidence: "high", score: scoreName(p, possible, 125 - (i - j) * 12) });
+      }
+    }
 
-  // 4. Context block: accept only clean two-token names, never arbitrary OCR fragments.
-  for (let i = 0; i < lines.length; i++) {
-    if (!contextHeading.test(lines[i])) continue;
-    for (let j = i + 1; j <= Math.min(i + 4, lines.length - 1); j++) {
-      if (streetLine.test(lines[j]) || addressNoise.test(lines[j])) continue;
-      const p = candidate(lines[j]);
-      if (p) return { ...p, confidence: "medium" };
+    if (CONTEXT.test(line)) {
+      for (let j = i + 1; j <= Math.min(i + 4, lines.length - 1); j++) {
+        const possible = lines[j];
+        if (ADDRESS_NOISE.test(possible) || STREET.test(possible) || POSTCODE.test(possible)) continue;
+        const p = makeCandidate(possible);
+        if (p) candidates.push({ ...p, confidence: "medium", score: scoreName(p, possible, 82 - (j - i) * 10) });
+      }
     }
   }
 
-  return { firstName: null, lastName: null, confidence: "unknown" };
+  return resultFromCandidates(candidates);
+}
+
+function spatialLines(words: any[]) {
+  const usable = (words || [])
+    .filter(w => String(w?.text || "").trim())
+    .map(w => ({ text: String(w.text).trim(), x: Number(w?.bbox?.x0 || 0), y: Number(w?.bbox?.y0 || 0), conf: Number(w?.confidence ?? 0) }))
+    .filter(w => w.conf >= 20 || w.text.length > 2)
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  const groups: Array<{ y: number; words: typeof usable }> = [];
+  for (const word of usable) {
+    const last = groups[groups.length - 1];
+    if (!last || Math.abs(last.y - word.y) > 18) groups.push({ y: word.y, words: [word] });
+    else last.words.push(word);
+  }
+  return groups.map(g => g.words.sort((a, b) => a.x - b.x).map(w => w.text).join(" "));
 }
 
 function copySource(source: unknown) {
@@ -194,7 +225,8 @@ function copySource(source: unknown) {
 function enhance(source: unknown, mode: "color" | "gray" | "threshold") {
   const original = copySource(source);
   if (!original) return source;
-  const scale = Math.max(2, Math.min(3.5, 1800 / Math.max(original.width, original.height) * 2));
+  const maxDimension = Math.max(original.width, original.height);
+  const scale = Math.max(2, Math.min(3.2, 2600 / Math.max(1, maxDimension)));
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil(original.width * scale);
   canvas.height = Math.ceil(original.height * scale);
@@ -204,13 +236,10 @@ function enhance(source: unknown, mode: "color" | "gray" | "threshold") {
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
   if (mode === "color") return canvas;
-
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
   for (let i = 0; i < data.data.length; i += 4) {
     const luminance = 0.299 * data.data[i] + 0.587 * data.data[i + 1] + 0.114 * data.data[i + 2];
-    const value = mode === "threshold"
-      ? (luminance < 185 ? 0 : 255)
-      : Math.max(0, Math.min(255, (luminance - 128) * 1.65 + 128));
+    const value = mode === "threshold" ? (luminance < 175 ? 0 : 255) : Math.max(0, Math.min(255, (luminance - 128) * 1.8 + 128));
     data.data[i] = data.data[i + 1] = data.data[i + 2] = value;
   }
   ctx.putImageData(data, 0, 0);
@@ -240,26 +269,58 @@ async function recognizeSource(source: unknown) {
   await loadOcr();
   if (!window.Tesseract) throw new Error("OCR_LIBRARY_LOAD_FAILED");
   const modes: Array<"color" | "gray" | "threshold"> = ["color", "gray", "threshold"];
-  const texts: string[] = [];
+  const allTexts: string[] = [];
+  const allSpatial: string[] = [];
+
   for (const mode of modes) {
     const result = await window.Tesseract.recognize(
       enhance(source, mode),
-      "deu",
-      { logger: () => undefined, tessedit_pageseg_mode: mode === "color" ? 6 : 11, preserve_interword_spaces: "1", user_defined_dpi: "300" },
+      "deu+eng",
+      {
+        logger: () => undefined,
+        tessedit_pageseg_mode: mode === "color" ? 6 : 11,
+        preserve_interword_spaces: "1",
+        user_defined_dpi: "300",
+      },
     );
     const text = String(result?.data?.text || "");
-    if (text.trim()) texts.push(text);
-    const found = extractName(text);
-    if (found.firstName && found.lastName && found.confidence === "high") return found;
+    if (text.trim()) allTexts.push(text);
+    const spatial = spatialLines(result?.data?.words || []);
+    if (spatial.length) allSpatial.push(spatial.join("\n"));
+
+    const direct = extractName(spatial.join("\n"));
+    if (direct.confidence === "high") return direct;
+    const fallback = extractName(text);
+    if (fallback.confidence === "high") return fallback;
   }
 
-  let best: NameResult = { firstName: null, lastName: null, confidence: "unknown" };
-  for (const text of texts) {
-    const found = extractName(text);
-    if (found.confidence === "high") return found;
-    if (found.confidence === "medium" && best.confidence === "unknown") best = found;
+  const merged = [...allSpatial, ...allTexts];
+  const candidates = merged.map(extractName);
+  const high = candidates.find(v => v.confidence === "high");
+  if (high) return high;
+  return candidates.find(v => v.confidence === "medium") || { firstName: null, lastName: null, confidence: "unknown" };
+}
+
+async function extractPdfText(page: any) {
+  try {
+    const content = await page.getTextContent({ normalizeWhitespace: true, disableCombineTextItems: false });
+    const items = (content?.items || []).filter((item: any) => typeof item?.str === "string" && item.str.trim());
+    if (!items.length) return "";
+    const positioned = items.map((item: any) => ({
+      text: String(item.str).trim(),
+      x: Number(item.transform?.[4] || 0),
+      y: Number(item.transform?.[5] || 0),
+    })).sort((a: any, b: any) => b.y - a.y || a.x - b.x);
+    const lines: Array<{ y: number; items: typeof positioned }> = [];
+    for (const item of positioned) {
+      const last = lines[lines.length - 1];
+      if (!last || Math.abs(last.y - item.y) > 4) lines.push({ y: item.y, items: [item] });
+      else last.items.push(item);
+    }
+    return lines.map(line => line.items.sort((a: any, b: any) => a.x - b.x).map((item: any) => item.text).join(" ")).join("\n");
+  } catch {
+    return "";
   }
-  return best;
 }
 
 async function recognizeImage(file: File) {
@@ -270,9 +331,18 @@ async function recognizePdf(file: File) {
   const pdf = await pdfjs();
   const documentProxy = await pdf.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
   let best: NameResult = { firstName: null, lastName: null, confidence: "unknown" };
-  for (let pageNumber = 1; pageNumber <= Math.min(12, documentProxy.numPages); pageNumber++) {
+  for (let pageNumber = 1; pageNumber <= Math.min(20, documentProxy.numPages); pageNumber++) {
     const page = await documentProxy.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: 2.6 });
+
+    // Digital PDFs are checked before OCR. This is exact text extraction and avoids OCR corruption completely.
+    const nativeText = await extractPdfText(page);
+    if (nativeText) {
+      const found = extractName(nativeText);
+      if (found.confidence === "high") return found;
+      if (found.confidence === "medium" && best.confidence === "unknown") best = found;
+    }
+
+    const viewport = page.getViewport({ scale: 2.8 });
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
@@ -288,10 +358,16 @@ async function recognizePdf(file: File) {
 
 export async function analyzeBillNames(files: File[]) {
   let best: NameResult = { firstName: null, lastName: null, confidence: "unknown" };
-  for (const file of files.slice(0, 12)) {
-    const result = file.type === "application/pdf" ? await recognizePdf(file) : await recognizeImage(file);
-    if (result.confidence === "high" && result.firstName && result.lastName) return result;
-    if (result.confidence === "medium" && best.confidence === "unknown") best = result;
+  for (const file of files) {
+    try {
+      const found = file.type === "application/pdf" || /\.pdf$/i.test(file.name)
+        ? await recognizePdf(file)
+        : await recognizeImage(file);
+      if (found.confidence === "high") return found;
+      if (found.confidence === "medium" && best.confidence === "unknown") best = found;
+    } catch {
+      // One unreadable page/file must never prevent the remaining invoice pages from being analysed.
+    }
   }
   return best;
 }
