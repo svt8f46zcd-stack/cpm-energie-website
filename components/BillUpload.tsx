@@ -147,8 +147,9 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
     <div className="flex items-start gap-3">
       <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#19b7ff]/10 text-xl text-[#66d5ff]">↑</div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-white">Abrechnung hochladen</p>
-        <p className="mt-1 text-xs leading-5 text-slate-400">PDF oder mehrere Seiten als Fotos, maximal 12 Dateien. Mehrseitige Abrechnungen werden gemeinsam geprüft. Die Dateien bleiben während deiner Anfrage lokal im Browser.</p>
+        <p className="font-bold text-white">Rechnung hochladen</p>
+        <p className="mt-1 text-xs leading-5 text-slate-400">Eine oder mehrere Seiten deiner Strom oder Gasrechnung. PDF, JPG, PNG oder WEBP, bis zu 12 Dateien.</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">Du musst nichts abtippen. Ich lese die wichtigen Tarifdaten automatisch aus der Rechnung.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" disabled={status === "analyzing"} onClick={() => inputRef.current?.click()} className="rounded-xl border border-[#19b7ff]/35 bg-[#19b7ff]/10 px-4 py-2.5 text-sm font-bold text-[#8ce4ff] transition hover:bg-[#19b7ff]/20 disabled:opacity-50">
             {files.length ? "Weitere Seite hinzufügen" : "Rechnung auswählen"}
@@ -159,14 +160,14 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
         </div>
         <input ref={inputRef} type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={e => { mergeFiles(Array.from(e.target.files || [])); e.currentTarget.value = ""; }} />
         {files.length > 0 && <div className="mt-4 space-y-2"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ausgewählt · {files.length}/12</p>{files.map((file, index) => <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[.02] px-3 py-2"><span className="text-xs font-semibold text-emerald-300">✓</span><span className="min-w-0 flex-1 truncate text-xs text-slate-300">{file.type === "application/pdf" ? `Datei ${index + 1} · ${file.name}` : `Seite ${index + 1} · ${file.name}`}</span><button type="button" disabled={status === "analyzing"} onClick={() => removeFile(index)} className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-white/5 hover:text-white">Entfernen</button></div>)}</div>}
-        {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">{files.length > 1 ? `Wir prüfen ${files.length} Seiten gemeinsam und führen die erkannten Rechnungsdaten zusammen.` : "Die Rechnung wird auf vorhandene Textdaten geprüft. Falls nötig, wird automatisch OCR nachgeschaltet."}</p>}
+        {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">{files.length > 1 ? `Ich prüfe ${files.length} Seiten gemeinsam und führe die erkannten Rechnungsdaten zusammen.` : "Ich prüfe deine Rechnung auf Anbieter, Verbrauch und Preise."}</p>}
         {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
         {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-bold text-white">Rechnung erkannt</p>
             <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">{files.length > 1 ? `${files.length} Seiten` : "Automatisch"}</span>
           </div>
-          <p className="mt-1 text-xs leading-5 text-slate-400">Die Erkennung bewertet Preis, Verbrauch und Zahlungen anhand ihrer Rechnungsposition. Bei mehreren Seiten werden die Ergebnisse zusammengeführt, statt jede Seite als separate Rechnung zu behandeln.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">Die erkannten Angaben werden zusammengeführt, wenn du mehrere Seiten hochlädst. So wird eine mehrseitige Rechnung nicht als mehrere Rechnungen behandelt.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{displayValue(key, f.value)}</p><p className="mt-0.5 text-[10px] text-slate-500">Sicherheit: {f.confidence}</p></div>; })}
           </div>
