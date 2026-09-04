@@ -12,6 +12,7 @@ type OpenPlzLocality = { postalCode?: string; name?: string; municipality?: { na
 type EnergyType = "strom" | "gas" | "both";
 
 export function SavingsCalculator() {
+  const [step, setStep] = useState(1);
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
   const [cities, setCities] = useState<string[]>([]);
@@ -24,11 +25,10 @@ export function SavingsCalculator() {
   const [electricity, setElectricity] = useState(0);
   const [gas, setGas] = useState(0);
   const [customerType, setCustomerType] = useState<"private" | "business">("private");
-  const [tariffType, setTariffType] = useState<EnergyType>("both");
+  const [tariffType, setTariffType] = useState<EnergyType>("strom");
   const [showStreets, setShowStreets] = useState(false);
   const [showProviders, setShowProviders] = useState(false);
   const [detecting, setDetecting] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -37,12 +37,13 @@ export function SavingsCalculator() {
     setStreet(params.get("strasse") || "");
     setHouseNumber(params.get("hausnummer") || "");
     setProvider(params.get("anbieter") || "");
-    const tariff = params.get("tarif");
-    if (tariff === "strom" || tariff === "gas" || tariff === "both") setTariffType(tariff);
-    const strom = Number(params.get("strom"));
-    const gasValue = Number(params.get("gas"));
-    if (Number.isFinite(strom) && strom > 0) setElectricity(strom);
-    if (Number.isFinite(gasValue) && gasValue > 0) setGas(gasValue);
+    const incomingTariff = params.get("tarif") as EnergyType | null;
+    if (incomingTariff === "strom" || incomingTariff === "gas" || incomingTariff === "both") setTariffType(incomingTariff);
+    const incomingElectricity = Number(params.get("strom") || 0);
+    const incomingGas = Number(params.get("gas") || 0);
+    if (incomingElectricity > 0) setElectricity(incomingElectricity);
+    if (incomingGas > 0) setGas(incomingGas);
+    if (params.get("plz") || params.get("ort")) setStep(2);
   }, []);
 
   useEffect(() => {
@@ -56,20 +57,16 @@ export function SavingsCalculator() {
         if (!response.ok) throw new Error();
         const results = await response.json() as OpenPlzLocality[];
         const unique = Array.from(new Set(results.map(r => (r.name || r.municipality?.name || "").trim()).filter(Boolean)));
-        if (cancelled) return;
-        setCities(unique);
-        setCity(current => current && unique.includes(current) ? current : unique.length === 1 ? unique[0] : "");
+        if (!cancelled) { setCities(unique); setCity(current => current && unique.includes(current) ? current : unique.length === 1 ? unique[0] : ""); }
       } catch {
-        if (!cancelled) {
-          try {
-            const params = new URLSearchParams({ postalcode: postalCode, country: "Germany", format: "jsonv2", addressdetails: "1", limit: "50" });
-            const response = await fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } });
-            if (!response.ok) throw new Error();
-            const results = await response.json() as NominatimResult[];
-            const unique = Array.from(new Set(results.map(r => { const a = r.address || {}; return a.city || a.town || a.village || a.municipality || ""; }).filter(Boolean)));
-            if (!cancelled) { setCities(unique); setCity(current => current && unique.includes(current) ? current : unique.length === 1 ? unique[0] : ""); }
-          } catch { if (!cancelled) setCities([]); }
-        }
+        try {
+          const params = new URLSearchParams({ postalcode: postalCode, country: "Germany", format: "jsonv2", addressdetails: "1", limit: "50" });
+          const response = await fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } });
+          if (!response.ok) throw new Error();
+          const results = await response.json() as NominatimResult[];
+          const unique = Array.from(new Set(results.map(r => { const a = r.address || {}; return a.city || a.town || a.village || a.municipality || ""; }).filter(Boolean)));
+          if (!cancelled) { setCities(unique); setCity(current => current && unique.includes(current) ? current : unique.length === 1 ? unique[0] : ""); }
+        } catch { if (!cancelled) setCities([]); }
       } finally { if (!cancelled) setLoadingCities(false); }
     }
     loadCities();
@@ -97,7 +94,8 @@ export function SavingsCalculator() {
     return (q ? PROVIDERS.filter(x => x.toLowerCase().includes(q)) : PROVIDERS).slice(0, 8);
   }, [provider]);
 
-  const hasConsumption = (tariffType === "strom" || tariffType === "both") ? electricity > 0 : gas > 0;
+  const consumptionReady = (tariffType === "strom" && electricity > 0) || (tariffType === "gas" && gas > 0) || (tariffType === "both" && electricity > 0 && gas > 0);
+  const addressReady = /^\d{5}$/.test(postalCode) && !!city && !!street.trim() && !!houseNumber.trim();
   const params = new URLSearchParams({ plz: postalCode, ort: city, strasse: street, hausnummer: houseNumber, anbieter: provider, strom: String(electricity), gas: String(gas), kundentyp: customerType, tarif: tariffType });
 
   async function detectLocation() {
@@ -105,8 +103,8 @@ export function SavingsCalculator() {
     setDetecting(true);
     navigator.geolocation.getCurrentPosition(async position => {
       try {
-        const reverse = new URLSearchParams({ lat: String(position.coords.latitude), lon: String(position.coords.longitude), format: "jsonv2", addressdetails: "1" });
-        const r = await fetch(`${NOMINATIM_API}/reverse?${reverse}`, { cache: "no-store", headers: { Accept: "application/json" } });
+        const reverseParams = new URLSearchParams({ lat: String(position.coords.latitude), lon: String(position.coords.longitude), format: "jsonv2", addressdetails: "1" });
+        const r = await fetch(`${NOMINATIM_API}/reverse?${reverseParams}`, { cache: "no-store", headers: { Accept: "application/json" } });
         if (!r.ok) throw new Error();
         const a = ((await r.json()) as NominatimResult).address || {};
         setPostalCode(a.postcode || ""); setCity(a.city || a.town || a.village || a.municipality || ""); setStreet(a.road || "");
@@ -114,75 +112,53 @@ export function SavingsCalculator() {
     }, () => setDetecting(false), { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
   }
 
-  return (
-    <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[#06111d] shadow-2xl shadow-black/20">
-      <div className="border-b border-white/10 px-5 py-6 md:px-8 md:py-7">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#19b7ff]/10 text-lg text-[#66d5ff]">1</div>
-          <div>
-            <h2 className="text-xl font-bold text-white md:text-2xl">Was möchtest du prüfen?</h2>
-            <p className="mt-1 text-sm text-slate-400">Wähle Strom, Gas oder beides.</p>
-          </div>
-        </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {(["strom", "gas", "both"] as EnergyType[]).map(type => {
-            const label = type === "strom" ? "Nur Strom" : type === "gas" ? "Nur Gas" : "Strom + Gas";
-            return <button key={type} type="button" onClick={() => setTariffType(type)} className={`rounded-xl border px-4 py-3.5 text-sm font-bold transition ${tariffType === type ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 bg-white/[.03] text-slate-300 hover:border-white/20"}`}>{label}</button>;
-          })}
-        </div>
-      </div>
+  function nextFromStepOne() {
+    if (tariffType === "strom" && electricity === 0) setElectricity(3000);
+    if (tariffType === "gas" && gas === 0) setGas(12000);
+    if (tariffType === "both") { if (electricity === 0) setElectricity(3000); if (gas === 0) setGas(12000); }
+    setStep(2);
+  }
 
-      <div className="px-5 py-6 md:px-8 md:py-7">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#19b7ff]/10 text-lg text-[#66d5ff]">2</div>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-white md:text-2xl">Wie viel verbrauchst du im Jahr?</h2>
-            <p className="mt-1 text-sm text-slate-400">Am besten steht der Jahresverbrauch auf deiner letzten Abrechnung.</p>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
-          {(tariffType === "strom" || tariffType === "both") && <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
-            <label className="text-sm font-bold text-white">Stromverbrauch</label>
-            <div className="mt-3 flex items-center gap-3"><input type="number" min="0" max="15000" step="100" value={electricity || ""} onChange={e => setElectricity(Math.max(0, Math.min(15000, Number(e.target.value) || 0)))} placeholder="z. B. 3.000" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-lg font-bold text-white outline-none focus:border-[#19b7ff]"/><span className="text-sm font-semibold text-slate-400">kWh/Jahr</span></div>
-            <div className="mt-3 flex gap-2">{[2500, 3500, 4500].map(value => <button key={value} type="button" onClick={() => setElectricity(value)} className="rounded-lg bg-white/5 px-3 py-2 text-xs text-slate-300 hover:bg-white/10">{value.toLocaleString("de-DE")}</button>)}</div>
-          </div>}
-          {(tariffType === "gas" || tariffType === "both") && <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
-            <label className="text-sm font-bold text-white">Gasverbrauch</label>
-            <div className="mt-3 flex items-center gap-3"><input type="number" min="0" max="40000" step="500" value={gas || ""} onChange={e => setGas(Math.max(0, Math.min(40000, Number(e.target.value) || 0)))} placeholder="z. B. 12.000" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-lg font-bold text-white outline-none focus:border-[#19b7ff]"/><span className="text-sm font-semibold text-slate-400">kWh/Jahr</span></div>
-            <div className="mt-3 flex gap-2">{[10000, 15000, 20000].map(value => <button key={value} type="button" onClick={() => setGas(value)} className="rounded-lg bg-white/5 px-3 py-2 text-xs text-slate-300 hover:bg-white/10">{value.toLocaleString("de-DE")}</button>)}</div>
-          </div>}
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-[#19b7ff]/20 bg-[#19b7ff]/5 p-4">
-          <p className="text-sm font-semibold text-white">Noch keine Abrechnung zur Hand?</p>
-          <p className="mt-1 text-sm leading-6 text-slate-400">Du kannst deinen Verbrauch eingeben oder oben die Abrechnung hochladen. Ohne Verbrauch zeigen wir bewusst keine geschätzte Ersparnis an.</p>
-        </div>
-      </div>
-
-      <div className="border-t border-white/10 px-5 py-5 md:px-8">
-        <button type="button" onClick={() => setShowDetails(value => !value)} className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[.025] px-4 py-3.5 text-left hover:bg-white/[.05]">
-          <span><strong className="block text-sm text-white">Weitere Angaben</strong><span className="text-xs text-slate-500">Adresse, Anbieter und Kundentyp für eine genauere Prüfung</span></span>
-          <span className="text-xl text-slate-400">{showDetails ? "⌃" : "⌄"}</span>
-        </button>
-
-        {showDetails && <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <div><label className="text-sm font-semibold text-slate-300">PLZ</label><div className="mt-2 flex gap-2"><input value={postalCode} onChange={e => setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" maxLength={5} placeholder="z. B. 55278" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]"/><button type="button" onClick={detectLocation} disabled={detecting} className="rounded-xl border border-[#19b7ff]/30 px-4 text-sm font-semibold text-[#66d5ff]">{detecting ? "…" : "📍"}</button></div>{loadingCities && <p className="mt-2 text-xs text-slate-500">Ort wird geprüft …</p>}{!loadingCities && !city && cities.length > 0 && <div className="mt-2 overflow-hidden rounded-xl border border-[#19b7ff]/30 bg-[#081725]"><p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#66d5ff]">Ort auswählen</p>{cities.map(item => <button key={item} type="button" onClick={() => { setCity(item); setStreet(""); }} className="block w-full border-t border-white/5 px-4 py-3 text-left text-sm text-slate-200">{item}</button>)}</div>}{city && <p className="mt-2 text-sm text-[#66d5ff]">✓ {city}</p>}</div>
-          <div className="relative"><label className="text-sm font-semibold text-slate-300">Straße</label><input value={street} onChange={e => { setStreet(e.target.value); setShowStreets(true); }} onFocus={() => setShowStreets(true)} placeholder={city ? `Straße in ${city}` : "Erst Ort auswählen"} disabled={!city} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none disabled:opacity-40"/>{showStreets && city && street && (streetSuggestions.length > 0 || loadingStreets) && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725] shadow-2xl">{loadingStreets && <div className="px-4 py-3 text-xs text-slate-400">Straßen werden gesucht …</div>}{!loadingStreets && streetSuggestions.map(item => <button key={item} type="button" onClick={() => { setStreet(item); setStreetSuggestions([]); setShowStreets(false); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-[#19b7ff]/10">{item}</button>)}</div>}</div>
-          <div><label className="text-sm font-semibold text-slate-300">Hausnummer</label><input value={houseNumber} onChange={e => setHouseNumber(e.target.value.slice(0, 8))} placeholder="z. B. 3a" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/></div>
-          <div className="relative"><label className="text-sm font-semibold text-slate-300">Aktueller Anbieter</label><input value={provider} onChange={e => { setProvider(e.target.value); setShowProviders(true); }} onFocus={() => setShowProviders(true)} placeholder="Anbieter suchen" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/>{showProviders && providerMatches.length > 0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725] shadow-2xl">{providerMatches.map(item => <button key={item} type="button" onClick={() => { setProvider(item); setShowProviders(false); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-white/10">{item}</button>)}</div>}</div>
-          <div className="md:col-span-2"><label className="text-sm font-semibold text-slate-300">Du bist</label><div className="mt-2 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => setCustomerType("private")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "private" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Privathaushalt</button><button type="button" onClick={() => setCustomerType("business")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "business" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Gewerbe</button></div></div>
-        </div>}
-      </div>
-
-      <div className="border-t border-white/10 bg-[#040d17] px-5 py-6 md:px-8 md:py-7">
-        <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
-          <p className="text-sm text-slate-400">Ersparnis</p>
-          <p className="mt-1 text-base font-semibold text-slate-200">{hasConsumption ? "Deine Angaben sind erfasst. Das tatsächliche Einsparpotenzial prüfen wir anhand deines aktuellen Tarifs und der verfügbaren Angebote." : "Gib zuerst deinen Jahresverbrauch ein. Dann können wir das Einsparpotenzial sinnvoll prüfen."}</p>
-        </div>
-        <Link href={`/kontakt?${params.toString()}`} className={`mt-4 block w-full rounded-full px-7 py-4 text-center font-bold transition ${hasConsumption ? "bg-[#19b7ff] text-[#03101c] hover:bg-white" : "bg-white/10 text-slate-500"}`}>Tarif kostenlos prüfen →</Link>
-        <p className="mt-3 text-center text-xs leading-5 text-slate-500">Kostenlos und unverbindlich. Keine Verpflichtung zum Wechsel.</p>
+  return <div className="space-y-5">
+    <div className="rounded-2xl border border-white/10 bg-white/[.025] p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#19b7ff]">Schritt {step} von 3</p><p className="mt-1 font-bold text-white">{step === 1 ? "Was möchtest du prüfen?" : step === 2 ? "Dein Verbrauch" : "Wo soll der Tarif passen?"}</p></div>
+        <div className="flex gap-1.5" aria-hidden="true">{[1,2,3].map(n => <span key={n} className={`h-1.5 w-8 rounded-full ${n <= step ? "bg-[#19b7ff]" : "bg-white/10"}`} />)}</div>
       </div>
     </div>
-  );
+
+    {step === 1 && <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {(["strom", "gas", "both"] as EnergyType[]).map(type => <button key={type} type="button" onClick={() => setTariffType(type)} className={`rounded-2xl border p-5 text-left transition ${tariffType === type ? "border-[#19b7ff] bg-[#19b7ff]/10" : "border-white/10 bg-white/[.025] hover:border-white/20"}`}><span className="text-2xl">{type === "strom" ? "⚡" : type === "gas" ? "🔥" : "⚡ + 🔥"}</span><span className="mt-3 block font-bold text-white">{type === "strom" ? "Nur Strom" : type === "gas" ? "Nur Gas" : "Strom + Gas"}</span><span className="mt-1 block text-xs text-slate-400">{type === "both" ? "Beides zusammen prüfen" : `Nur ${type === "strom" ? "Strom" : "Gas"}`}</span></button>)}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button type="button" onClick={() => setCustomerType("private")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "private" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Privathaushalt</button>
+        <button type="button" onClick={() => setCustomerType("business")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "business" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Gewerbe</button>
+      </div>
+      <button type="button" onClick={nextFromStepOne} className="w-full rounded-full bg-[#19b7ff] px-7 py-4 font-bold text-[#03101c]">Weiter →</button>
+      <p className="text-center text-xs text-slate-500">Noch einfacher: Wenn du deine Abrechnung hast, kannst du sie oben hochladen. Dann müssen die Verbrauchsdaten nicht von Hand eingegeben werden.</p>
+    </div>}
+
+    {step === 2 && <div className="space-y-5">
+      <p className="text-sm leading-6 text-slate-400">Eine grobe Jahresangabe reicht. Wenn du deinen Verbrauch nicht kennst, findest du ihn auf deiner letzten Abrechnung.</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        {(tariffType === "strom" || tariffType === "both") && <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><label className="text-sm font-bold text-white">Stromverbrauch pro Jahr</label><div className="mt-3 flex items-center gap-2"><input type="number" min="0" max="15000" step="100" value={electricity || ""} onChange={e => setElectricity(Math.max(0, Number(e.target.value)))} placeholder="z. B. 3.000" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none focus:border-[#19b7ff]"/><span className="text-sm text-slate-400">kWh</span></div><div className="mt-3 flex flex-wrap gap-2">{[2000,3000,4000,5000].map(v => <button key={v} type="button" onClick={() => setElectricity(v)} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:border-[#19b7ff]/50">{v.toLocaleString("de-DE")}</button>)}</div></div>}
+        {(tariffType === "gas" || tariffType === "both") && <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><label className="text-sm font-bold text-white">Gasverbrauch pro Jahr</label><div className="mt-3 flex items-center gap-2"><input type="number" min="0" max="40000" step="500" value={gas || ""} onChange={e => setGas(Math.max(0, Number(e.target.value)))} placeholder="z. B. 12.000" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none focus:border-[#19b7ff]"/><span className="text-sm text-slate-400">kWh</span></div><div className="mt-3 flex flex-wrap gap-2">{[8000,12000,18000,24000].map(v => <button key={v} type="button" onClick={() => setGas(v)} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:border-[#19b7ff]/50">{v.toLocaleString("de-DE")}</button>)}</div></div>}
+      </div>
+      <div className="flex gap-3"><button type="button" onClick={() => setStep(1)} className="rounded-full border border-white/10 px-6 py-4 font-semibold text-slate-300">Zurück</button><button type="button" disabled={!consumptionReady} onClick={() => setStep(3)} className={`flex-1 rounded-full px-7 py-4 font-bold ${consumptionReady ? "bg-[#19b7ff] text-[#03101c]" : "cursor-not-allowed bg-white/10 text-slate-500"}`}>Weiter →</button></div>
+    </div>}
+
+    {step === 3 && <div className="space-y-5">
+      <p className="text-sm leading-6 text-slate-400">Damit wir passende Tarife für deinen Wohnort prüfen können, brauchen wir noch deine Adresse. Dein aktueller Anbieter ist hilfreich, aber nicht zwingend.</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div><label className="text-sm font-semibold text-slate-300">PLZ</label><div className="mt-2 flex gap-2"><input value={postalCode} onChange={e => setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" maxLength={5} placeholder="z. B. 55278" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]"/><button type="button" onClick={detectLocation} disabled={detecting} className="rounded-xl border border-[#19b7ff]/30 px-4 text-sm font-semibold text-[#66d5ff]">{detecting ? "…" : "📍"}</button></div>{loadingCities && <p className="mt-2 text-xs text-slate-500">Ort wird geprüft …</p>}{!loadingCities && !city && cities.length > 0 && <div className="mt-2 overflow-hidden rounded-xl border border-[#19b7ff]/30 bg-[#081725]"><p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#66d5ff]">Ort auswählen</p>{cities.map(item => <button key={item} type="button" onClick={() => { setCity(item); setStreet(""); }} className="block w-full border-t border-white/5 px-4 py-3 text-left text-sm text-slate-200">{item}</button>)}</div>}{city && <p className="mt-2 text-sm text-[#66d5ff]">✓ {city}</p>}</div>
+        <div className="relative"><label className="text-sm font-semibold text-slate-300">Straße</label><input value={street} onChange={e => { setStreet(e.target.value); setShowStreets(true); }} onFocus={() => setShowStreets(true)} placeholder={city ? `Straße in ${city}` : "Erst Ort auswählen"} disabled={!city} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none disabled:opacity-40"/>{showStreets && city && street && (streetSuggestions.length > 0 || loadingStreets) && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725] shadow-2xl">{loadingStreets && <div className="px-4 py-3 text-xs text-slate-400">Straßen werden gesucht …</div>}{!loadingStreets && streetSuggestions.map(item => <button key={item} type="button" onClick={() => { setStreet(item); setStreetSuggestions([]); setShowStreets(false); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-[#19b7ff]/10">{item}</button>)}</div>}</div>
+        <div><label className="text-sm font-semibold text-slate-300">Hausnummer</label><input value={houseNumber} onChange={e => setHouseNumber(e.target.value.slice(0, 8))} placeholder="z. B. 3a" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/></div>
+        <div className="relative"><label className="text-sm font-semibold text-slate-300">Aktueller Anbieter <span className="font-normal text-slate-500">optional</span></label><input value={provider} onChange={e => { setProvider(e.target.value); setShowProviders(true); }} onFocus={() => setShowProviders(true)} placeholder="z. B. E.ON" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/>{showProviders && providerMatches.length > 0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725] shadow-2xl">{providerMatches.map(item => <button key={item} type="button" onClick={() => { setProvider(item); setShowProviders(false); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-white/10">{item}</button>)}</div>}</div>
+      </div>
+      <div className="rounded-2xl border border-[#19b7ff]/20 bg-[#19b7ff]/5 p-4"><p className="text-sm font-semibold text-white">Was passiert danach?</p><p className="mt-1 text-sm leading-6 text-slate-400">Wir prüfen deine Angaben und zeigen dir, welche Tarife für deine Situation infrage kommen. Es gibt keine automatische Vertragsumstellung.</p></div>
+      <div className="flex gap-3"><button type="button" onClick={() => setStep(2)} className="rounded-full border border-white/10 px-6 py-4 font-semibold text-slate-300">Zurück</button><Link href={`/kontakt?${params.toString()}`} className={`flex-1 rounded-full px-7 py-4 text-center font-bold ${addressReady ? "bg-[#19b7ff] text-[#03101c]" : "bg-white/10 text-slate-500"}`}>Tarif kostenlos prüfen</Link></div>
+      <p className="text-center text-xs text-slate-500">Kostenlos und unverbindlich. Du entscheidest selbst, ob du wechseln möchtest.</p>
+    </div>}
+  </div>;
 }
