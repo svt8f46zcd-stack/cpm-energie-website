@@ -34,6 +34,11 @@ jobs:
           npm run build 2>&1 | tee build.log
           status=${PIPESTATUS[0]}
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          if [ "$status" -eq 0 ]; then
+            test -f out/index.html
+            cp out/index.html out/404.html
+            touch out/.nojekyll
+          fi
           exit $status
       - name: Upload build log
         if: always()
@@ -41,12 +46,9 @@ jobs:
         with:
           name: cpm-energie-build-log
           path: build.log
-      - name: Prepare Pages artifact
-        if: success()
-        run: touch out/.nojekyll
       - name: Upload Pages artifact
         if: success()
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./out
 
