@@ -50,7 +50,7 @@ async function ocrImage(image: unknown): Promise<string> {
   try {
     const texts: string[] = [];
     for (const mode of ["6", "11"]) {
-      await worker.setParameters({ tessedit_pageseg_mode: mode });
+      await worker.setParameters({ tessedit_pageseg_mode: mode, preserve_interword_spaces: "1" });
       const result = await worker.recognize(image);
       if (result.data.text) texts.push(result.data.text);
     }
@@ -67,10 +67,12 @@ async function extractText(file: File): Promise<string> {
   const chunks: string[] = [];
   for (let i = 1; i <= pages; i += 1) {
     const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2.4 });
+    const viewport = page.getViewport({ scale: 2.8 });
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
-    await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) continue;
+    await page.render({ canvasContext: ctx, viewport }).promise;
     chunks.push(await ocrImage(canvas));
   }
   return chunks.join("\n");
@@ -83,14 +85,35 @@ function normalizeOcr(text: string): string {
     .replace(/[|]/g, " ")
     .replace(/[€]/g, " € ")
     .replace(/\bCts?\b/gi, "ct")
-    .replace(/kWh/gi, "kWh")
+    .replace(/kwh/gi, "kWh")
     .replace(/\s+/g, " ");
 }
 
-function deNumber(value: string): number | null {
-  const s = value.replace(/\s/g, "").replace(/€/g, "");
-  const normalized = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
-  const n = Number(normalized);
+function deNumber(value: string, context?: "currency" | "consumption" | "price"): number | null {
+  let s = value.replace(/\s/g, "").replace(/€/g, "").replace(/[^0-9,.-]/g, "");
+  if (!s) return null;
+
+  // German OCR frequently drops the decimal comma in euro amounts, e.g. 154,95 -> 15495.
+  // Only apply this correction when the surrounding label explicitly describes a euro amount.
+  if (context === "currency" && /^\d{4,5}$/.test(s)) {
+    const n = Number(s);
+    if (n >= 1000 && n <= 999999) return n / 100;
+  }
+
+  // German thousands/decimal notation: 15.431,25 -> 15431.25.
+  if (s.includes(",")) {
+    const normalized = s.replace(/\./g, "").replace(",", ".");
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // A dot in a consumption value such as 15.431 is a thousands separator.
+  if (context === "consumption" && /^\d{1,3}(?:\.\d{3})+$/.test(s)) {
+    const n = Number(s.replace(/\./g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  const n = Number(s.replace(/,/g, ""));
   return Number.isFinite(n) ? n : null;
 }
 
@@ -98,11 +121,11 @@ function makeField(value: string | number | null, confidence: BillAnalysisField[
   return value === null || value === "" ? { value: null, confidence: "unknown", source: "not_detected" } : { value, confidence, source: "document" };
 }
 
-function findNumber(text: string, patterns: RegExp[]): number | null {
-  for (const p of patterns) {
-    const m = text.match(p);
+function findNumber(text: string, patterns: Array<{ pattern: RegExp; context?: "currency" | "consumption" | "price" }>): number | null {
+  for (const { pattern, context } of patterns) {
+    const m = text.match(pattern);
     if (!m?.[1]) continue;
-    const n = deNumber(m[1]);
+    const n = deNumber(m[1], context);
     if (n !== null) return n;
   }
   return null;
@@ -113,11 +136,44 @@ function firstDateRange(text: string): string | null {
   return m ? `${m[1].replace(/\//g, ".")} - ${m[2].replace(/\//g, ".")}` : null;
 }
 
+function parseAnnualConsumption(clean: string, normalized: string): BillAnalysisField {
+  // 1. Strongest signal: explicit annual consumption / annualized wording.
+  const explicit = findNumber(clean, [
+    { pattern: /(?:jahresverbrauch|jahresverbrauchs?wert)[^\d]{0,260}(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d{4,6}(?:,\d+)?)\s*kwh/i, context: "consumption" },
+    { pattern: /(?:auf|für)\s+365\s*tage[^\d]{0,260}(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d{4,6}(?:,\d+)?)\s*kwh/i, context: "consumption" },
+    { pattern: /365\s*tage[^\d]{0,300}(?:hochgerechnet|umgerechnet)[^\d]{0,260}(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d{4,6}(?:,\d+)?)\s*kwh/i, context: "consumption" },
+    { pattern: /(?:hochgerechnet|umgerechnet)[^\d]{0,300}365\s*tage[^\d]{0,260}(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d{4,6}(?:,\d+)?)\s*kwh/i, context: "consumption" },
+  ]);
+  if (explicit !== null && explicit >= 100 && explicit <= 100000) return makeField(explicit, "high");
+
+  // 2. E.ON often places the annualized value in a chart without repeating “kWh” after it.
+  // After “Jahresverbrauch in kWh / auf 365 Tage umgerechnet”, the first plausible value
+  // is the customer's annualized value. The next value is commonly a comparison benchmark.
+  const marker = normalized.search(/jahresverbrauch\s+in\s+kwh|auf\s+365\s+tage\s+umgerechnet/i);
+  if (marker >= 0) {
+    const context = normalized.slice(marker, marker + 900);
+    const candidates = [...context.matchAll(/\b(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{4,6}(?:,\d+)?)\b/g)]
+      .map(m => deNumber(m[1], "consumption"))
+      .filter((n): n is number => n !== null && n >= 500 && n <= 100000);
+    if (candidates.length) return makeField(candidates[0], "high");
+  }
+
+  // 3. Conservative fallback: only accept a clearly annualized value, never a random kWh amount.
+  const idx = normalized.search(/jahresverbrauch|365\s+tage|hochgerechnet|umgerechnet/i);
+  if (idx >= 0) {
+    const context = normalized.slice(idx, idx + 500);
+    const candidates = [...context.matchAll(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{4,6}(?:,\d+)?)\s*kwh/gi)]
+      .map(m => deNumber(m[1], "consumption"))
+      .filter((n): n is number => n !== null && n >= 500 && n <= 100000);
+    if (candidates.length) return makeField(candidates[0], "medium");
+  }
+  return makeField(null);
+}
+
 function parseText(text: string): BillAnalysisResult {
   const r = emptyBillAnalysis();
   const clean = text.replace(/\u00a0/g, " ").replace(/\r/g, "");
   const normalized = normalizeOcr(clean);
-  const lower = normalized.toLowerCase();
 
   const hasStrom = /\bstrom\b/i.test(clean) || /\bstr[o0]m\b/i.test(clean);
   const hasGas = /\bgas\b/i.test(clean);
@@ -126,49 +182,30 @@ function parseText(text: string): BillAnalysisResult {
   const provider = /\be\s*\.?\s*on\b/i.test(clean) || /eon/i.test(clean) ? "E.ON" : /\benbw\b/i.test(clean) ? "EnBW" : /\bvattenfall\b/i.test(clean) ? "Vattenfall" : /\bmainova\b/i.test(clean) ? "Mainova" : /\bewe\b/i.test(clean) ? "EWE" : null;
   r.provider = makeField(provider, provider ? "high" : "unknown");
 
-  // Never take a generic consumption number first. Prefer explicit annualized values and 365-day projections.
-  const annual = findNumber(clean, [
-    /(?:jahresverbrauch|jahresverbrauchs?wert)[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /(?:auf|für)\s+365\s*tage[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /365\s*tage[\s\S]{0,260}?(?:hochgerechnet|umgerechnet)[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /(?:hochgerechnet|umgerechnet)[\s\S]{0,220}?365\s*tage[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
-  ]);
-  r.annualConsumptionKwh = makeField(annual, annual !== null ? "high" : "unknown");
+  // The annualized chart value is deliberately separated from individual billing-period consumption.
+  r.annualConsumptionKwh = parseAnnualConsumption(clean, normalized);
 
-  // OCR often splits a number and unit. Reconstruct an annual value from the line/nearby context.
-  if (r.annualConsumptionKwh.value === null) {
-    const annualContext = normalized.match(/(?:jahresverbrauch|auf\s+365\s*tage|365\s*tage)[^\d]{0,220}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)\s*kwh/i);
-    if (annualContext?.[1]) r.annualConsumptionKwh = makeField(deNumber(annualContext[1]), "medium");
-  }
-
-  // Additional E.ON style fallback: if the text contains an annualized consumption section, inspect numbers close to it.
-  if (r.annualConsumptionKwh.value === null) {
-    const idx = lower.search(/jahresverbrauch|365\s*tage|hochgerechnet|umgerechnet/);
-    if (idx >= 0) {
-      const context = normalized.slice(idx, idx + 500);
-      const candidates = [...context.matchAll(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{4,6}(?:,\d+)?)\s*kwh/gi)]
-        .map(m => deNumber(m[1])).filter((n): n is number => n !== null && n >= 500 && n <= 100000);
-      if (candidates.length) r.annualConsumptionKwh = makeField(candidates[candidates.length - 1], "medium");
-    }
-  }
-
+  // Price extraction is label-bound. This prevents a contract number, invoice total or other
+  // currency from being mistaken for the work/base price.
   r.workPriceCtPerKwh = makeField(findNumber(clean, [
-    /arbeitspreis[\s\S]{0,140}?([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh/i,
-    /([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh[\s\S]{0,100}?arbeitspreis/i,
-    /([\d.]+(?:,\d+)?)\s*ct\s*\/\s*kwh/i,
+    { pattern: /arbeitspreis[^\d]{0,160}(\d{1,3}(?:[.,]\d{1,3})?)\s*ct\s*\/?\s*kwh/i, context: "price" },
+    { pattern: /(\d{1,3}(?:[.,]\d{1,3})?)\s*ct\s*\/?\s*kwh[^\n]{0,120}?arbeitspreis/i, context: "price" },
   ]));
+
   r.basePriceEurPerYear = makeField(findNumber(clean, [
-    /grundpreis[\s\S]{0,140}?([\d.]+(?:,\d+)?)\s*€\s*\/?\s*(?:jahr|a|monat)/i,
-    /grundpreis[\s\S]{0,140}?([\d.]+(?:,\d+)?)\s*€/i,
+    { pattern: /grundpreis[^\d]{0,160}(\d{1,5}(?:[.,]\d{1,2})?)\s*€\s*\/?\s*(?:jahr|a)\b/i, context: "currency" },
+    { pattern: /grundpreis[^\d]{0,160}(\d{1,5}(?:[.,]\d{1,2})?)\s*€/i, context: "currency" },
   ]));
+
+  // Prefer an actual Abschlag entry and never a total payment or energy cost.
   r.monthlyPaymentEur = makeField(findNumber(clean, [
-    /abschlag(?:\s+monatlich)?[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€/i,
-    /monatlicher\s+abschlag[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€/i,
+    { pattern: /abschlag[^\d]{0,100}(\d{1,4}(?:[.,]\d{2})?)\s*€/i, context: "currency" },
+    { pattern: /monatlicher\s+abschlag[^\d]{0,100}(\d{1,4}(?:[.,]\d{2})?)\s*€/i, context: "currency" },
   ]));
 
   const period = firstDateRange(clean);
   r.billingPeriod = makeField(period, period ? "high" : "unknown");
-  const end = clean.match(/(?:vertragsende|vertragslaufzeit\s*bis|belieferung\s*bis)[\s:]+(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})/i);
+  const end = clean.match(/(?:vertragsende|vertragslaufzeit\s*bis|belieferung\s*bis)[\s:]+(\d{1,2}[.\/]\d{1,2}[\/]\d{4})/i);
   r.contractEnd = makeField(end?.[1]?.replace(/\//g, ".") || null, end ? "medium" : "unknown");
   const cancel = clean.match(/k(?:ü|u)ndigungsfrist[\s:]+([^\n]{1,80})/i);
   r.cancellationPeriod = makeField(cancel?.[1]?.trim() || null, cancel ? "medium" : "unknown");
