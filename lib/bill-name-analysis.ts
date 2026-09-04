@@ -18,19 +18,32 @@ function cleanName(value: string) {
   return value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ' -]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-// Rechnungs-OCR produziert häufig Tabellenfragmente wie "CZ kWh Mh".
-// Diese dürfen niemals als Rechnungsempfänger durchrutschen.
 const badExact = /^(strom|gas|rechnung|energie|kunden|kunde|kundin|nummer|adresse|anschrift|straße|strasse|weg|allee|platz|ring|gasse|vertrag|vertragspartner|anbieter|bank|iban|bic|seite|datum|betrag|tarif|abschlag|verbrauch|preis|zahlung|konto|service|kontakt|telefon|email|e-mail|gebühr|summe|arbeitspreis|grundpreis|netto|brutto|mwst|kwh|ct|eur|euro|monat|jahr|tage|menge|zeitraum|messstelle|zähler|zaehler|zählernummer|markt|netz|lieferant|lieferung|bonus|entgelt|umlage|steuer)$/i;
 const badFragment = /(?:\bkwh\b|\bkw\b|\bct\/?kwh\b|\beur\b|€|\bnetto\b|\bbrutto\b|\bmwst\b|\b(?:arbeits|grund|zähl|zaehler|verbrauch|abschlag|mess|markt|netz|liefer)preis\b|\b(?:abrechnungs|vertrags|zahlungs)zeitraum\b|\bseite\s*\d|\d)/i;
+const badOcrWords = /^(?:the|your|their|electric|energy|invoice|customer|account|summary|total|page|amount|meter|reading|verbrauch|abrechnung)$/i;
 const suspiciousOcrToken = /^(?:[A-Z]{1,3}|[A-Za-z]*[A-Z][A-Za-z]*[A-Z][A-Za-z]*)$/;
+
+function tokenLooksCorrupted(token: string) {
+  const lower = token.toLocaleLowerCase("de-DE");
+  if (badOcrWords.test(lower)) return true;
+  if (/(.)\1\1/.test(lower)) return true;
+  // OCR often creates implausible consonant pairs in table fragments.
+  const unusualPairs = ["zv", "vz", "vb", "bv", "gq", "qg", "qx", "xq", "jv", "vj", "wq", "qw", "kq", "qk"];
+  let unusual = 0;
+  for (const pair of unusualPairs) if (lower.includes(pair)) unusual++;
+  if (unusual > 0) return true;
+  const vowels = (lower.match(/[aeiouäöü]/g) || []).length;
+  if (token.length >= 7 && vowels / token.length < 0.22) return true;
+  if (token.length >= 10 && /[^aeiouäöü]{4,}/i.test(token)) return true;
+  return false;
+}
 
 function validNameToken(token: string) {
   if (token.length < 2 || token.length > 35) return false;
   if (!/^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'-]*$/.test(token)) return false;
   if (badExact.test(token) || badFragment.test(token)) return false;
-  // Kurze reine Großbuchstaben sind bei OCR sehr oft Tabellen-/Codefragmente.
+  if (tokenLooksCorrupted(token)) return false;
   if (suspiciousOcrToken.test(token) && token.length <= 4) return false;
-  // Gemischte Tokens wie "kWh" oder "Mh2" sind keine plausiblen Namen.
   if (/[a-z][A-Z][a-z]/.test(token)) return false;
   return true;
 }
@@ -58,20 +71,37 @@ function extractName(text: string) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const fm = line.match(firstRe);
-    if (fm) { const p = candidateFromText(fm[1]); if (p) { first = p.firstName; last ??= p.lastName; confidence = "high"; } }
+    if (fm) {
+      const p = candidateFromText(fm[1]);
+      if (p) { first = p.firstName; last ??= p.lastName; confidence = "high"; }
+    }
     const lm = line.match(lastRe);
-    if (lm) { const value = cleanName(lm[1]); if (validNameToken(value)) { last = value; confidence = "high"; } }
+    if (lm) {
+      const value = cleanName(lm[1]);
+      if (validNameToken(value)) { last = value; confidence = "high"; }
+    }
     const cm = line.match(customerRe);
-    if (cm) { const p = candidateFromText(cm[1]); if (p) { first ??= p.firstName; last ??= p.lastName; confidence = "high"; } }
+    if (cm) {
+      const p = candidateFromText(cm[1]);
+      if (p) { first ??= p.firstName; last ??= p.lastName; confidence = "high"; }
+    }
     const sm = line.match(salutationRe);
-    if (sm) { const p = candidateFromText(sm[1]); if (p) { first ??= p.firstName; last ??= p.lastName; confidence = "high"; } }
+    if (sm) {
+      const p = candidateFromText(sm[1]);
+      if (p) { first ??= p.firstName; last ??= p.lastName; confidence = "high"; }
+    }
 
     const context = /(?:ihre daten|persönliche daten|rechnungsadresse|lieferadresse|verbrauchsstelle|anschrift|adresse|kundendaten)/i.test(line);
     if (context) {
       for (const candidate of lines.slice(i + 1, i + 7)) {
         if (badFragment.test(candidate)) continue;
         const p = candidateFromText(candidate.replace(/^(?:herr|frau|herrn|fr\.?|hr\.?)\s+/i, ""));
-        if (p) { first ??= p.firstName; last ??= p.lastName; confidence = confidence === "unknown" ? "high" : confidence; break; }
+        if (p) {
+          first ??= p.firstName;
+          last ??= p.lastName;
+          confidence = confidence === "unknown" ? "high" : confidence;
+          break;
+        }
       }
     }
 
