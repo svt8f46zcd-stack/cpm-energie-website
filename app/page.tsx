@@ -8,18 +8,28 @@ export default function Home() {
     <div className="desktop-only"><DesktopHero /></div>
     <div className="mobile-only"><MobileHero /></div>
 
-    <div className="cpm-marquee" aria-hidden="true">
+    <div className="cpm-marquee" aria-label="Auswahl von Strom- und Gasanbietern">
       <div className="cpm-marquee-track">
-        <span>✦ 0 € Anbieterprovision</span>
-        <span>✦ Offengelegte Rechenformel</span>
-        <span>✦ Monatlich kündbar</span>
-        <span>✦ Volle Preisgarantie</span>
-        <span>✦ Keine Bonus-Fallen</span>
-        <span>✦ 0 € Anbieterprovision</span>
-        <span>✦ Offengelegte Rechenformel</span>
-        <span>✦ Monatlich kündbar</span>
-        <span>✦ Volle Preisgarantie</span>
-        <span>✦ Keine Bonus-Fallen</span>
+        <span>✦ E.ON</span>
+        <span>✦ goldgas</span>
+        <span>✦ ENTEGA</span>
+        <span>✦ eprimo</span>
+        <span>✦ Yello</span>
+        <span>✦ Vattenfall</span>
+        <span>✦ Mainova</span>
+        <span>✦ RheinEnergie</span>
+        <span>✦ EWE</span>
+        <span>✦ LichtBlick</span>
+        <span>✦ E.ON</span>
+        <span>✦ goldgas</span>
+        <span>✦ ENTEGA</span>
+        <span>✦ eprimo</span>
+        <span>✦ Yello</span>
+        <span>✦ Vattenfall</span>
+        <span>✦ Mainova</span>
+        <span>✦ RheinEnergie</span>
+        <span>✦ EWE</span>
+        <span>✦ LichtBlick</span>
       </div>
     </div>
 
