@@ -28,7 +28,7 @@ export function DesktopHero() {
             </div>
           </div>
           <HeroAddressCheck />
-          <BillUpload />
+          <BillUpload onContinue={() => { window.location.href = "/kontakt"; }} />
           <div className="mt-5 grid max-w-xl grid-cols-3 gap-2 text-xs sm:gap-3 sm:text-sm">
             <div className="rounded-xl border border-white/10 bg-[#06111dcc] px-3 py-3 text-center backdrop-blur-xl"><strong className="block text-white">100 % kostenlos</strong><span className="text-slate-400">keine Prüfgebühr</span></div>
             <div className="rounded-xl border border-white/10 bg-[#06111dcc] px-3 py-3 text-center backdrop-blur-xl"><strong className="block text-white">Kein Wechselzwang</strong><span className="text-slate-400">du entscheidest</span></div>
