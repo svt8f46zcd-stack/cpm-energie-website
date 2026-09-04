@@ -53,7 +53,6 @@ function displayValue(key: keyof BillAnalysisResult, value: string | number | nu
 
 export default function BillUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [fileNames, setFileNames] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
   const [status, setStatus] = useState<"idle" | "ready" | "analyzing" | "done">("idle");
@@ -73,7 +72,6 @@ export default function BillUpload() {
       return;
     }
     setFiles(unique);
-    setFileNames(unique.map(file => file.name));
     setStatus(unique.length ? "ready" : "idle");
     setAnalysis(null);
   };
@@ -81,7 +79,6 @@ export default function BillUpload() {
   const removeFile = (index: number) => {
     const next = files.filter((_, i) => i !== index);
     setFiles(next);
-    setFileNames(next.map(file => file.name));
     setAnalysis(null);
     setStatus(next.length ? "ready" : "idle");
   };
@@ -93,13 +90,39 @@ export default function BillUpload() {
     try {
       const results: BillAnalysisResult[] = [];
       for (const file of files) results.push(await analyzeBill(file));
-      const merged: BillAnalysisResult = results.reduce((acc, current) => {
+
+      const merged = results.reduce<BillAnalysisResult>((acc, current) => {
         (Object.keys(acc) as Array<keyof BillAnalysisResult>).forEach(key => {
           const candidate = current[key];
-          if (candidate.value !== null && candidate.value !== "" && (acc[key].value === null || candidate.confidence === "high")) acc[key] = candidate;
+          if (candidate.value === null || candidate.value === "") return;
+
+          if (acc[key].value === null || acc[key].value === "") {
+            acc[key] = candidate;
+            return;
+          }
+
+          if (candidate.confidence === "high" && acc[key].confidence !== "high") {
+            acc[key] = candidate;
+          }
         });
         return acc;
       }, structuredClone(results[0]));
+
+      // Bei mehrseitigen Rechnungen stehen auf einzelnen Seiten oft Teilverbräuche,
+      // während die Seite mit dem Rückblick den vollständigen Jahresverbrauch enthält.
+      // Unter den hoch sicheren Erkennungen ist deshalb der größte plausible Verbrauch
+      // die robustere Auswahl als einfach der Wert der ersten Seite.
+      const consumptionCandidates = results
+        .map(result => result.annualConsumptionKwh)
+        .filter(field => typeof field.value === "number" && field.value >= 300 && field.value <= 100000 && field.confidence === "high")
+        .map(field => field.value as number);
+      if (consumptionCandidates.length > 1) {
+        merged.annualConsumptionKwh = {
+          value: Math.max(...consumptionCandidates),
+          confidence: "high",
+          source: "document",
+        };
+      }
 
       const usable = [merged.energyType.value, merged.provider.value, merged.annualConsumptionKwh.value, merged.workPriceCtPerKwh.value, merged.basePriceEurPerYear.value];
       if (!usable.some(value => value !== null && value !== "")) throw new Error("NO_USABLE_DATA");
@@ -126,8 +149,8 @@ export default function BillUpload() {
             {status === "analyzing" ? "Rechnung wird geprüft …" : status === "done" ? "Erneut prüfen" : `${files.length} ${files.length === 1 ? "Datei" : "Dateien"} prüfen`}
           </button>}
         </div>
-        <input ref={inputRef} type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={e => mergeFiles(Array.from(e.target.files || []))} />
-        {files.length > 0 && <div className="mt-4 space-y-2"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ausgewählt · {files.length}/12</p>{files.map((file, index) => <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[.02] px-3 py-2"><span className="text-xs font-semibold text-emerald-300">✓</span><span className="min-w-0 flex-1 truncate text-xs text-slate-300">Seite {index + 1} · {file.name}</span><button type="button" disabled={status === "analyzing"} onClick={() => removeFile(index)} className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-white/5 hover:text-white">Entfernen</button></div>)}</div>}
+        <input ref={inputRef} type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={e => { mergeFiles(Array.from(e.target.files || [])); e.currentTarget.value = ""; }} />
+        {files.length > 0 && <div className="mt-4 space-y-2"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ausgewählt · {files.length}/12</p>{files.map((file, index) => <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[.02] px-3 py-2"><span className="text-xs font-semibold text-emerald-300">✓</span><span className="min-w-0 flex-1 truncate text-xs text-slate-300">{file.type === "application/pdf" ? `Datei ${index + 1} · ${file.name}` : `Seite ${index + 1} · ${file.name}`}</span><button type="button" disabled={status === "analyzing"} onClick={() => removeFile(index)} className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-white/5 hover:text-white">Entfernen</button></div>)}</div>}
         {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">{files.length > 1 ? `Wir prüfen ${files.length} Seiten gemeinsam und führen die erkannten Rechnungsdaten zusammen.` : "Die Rechnung wird auf vorhandene Textdaten geprüft. Falls nötig, wird automatisch OCR nachgeschaltet."}</p>}
         {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
         {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
