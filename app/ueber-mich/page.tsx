@@ -8,9 +8,9 @@ export default function AboutPage() {
     <section className="container py-16 md:py-24">
       <div className="grid items-center gap-10 md:grid-cols-[0.82fr_1.18fr] md:gap-16">
         <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-[#071322] shadow-2xl shadow-black/30">
-          <div className="absolute inset-0 bg-gradient-to-t from-[#03101c]/55 via-transparent to-transparent z-10 pointer-events-none" />
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#03101c]/55 via-transparent to-transparent pointer-events-none" />
           <Image
-            src="/cristiano.svg"
+            src="/cpm-energie-website/cristiano.svg"
             alt="Cristiano Patricio Moreira, CPM Energie"
             width={600}
             height={900}
