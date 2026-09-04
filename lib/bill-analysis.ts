@@ -67,13 +67,24 @@ async function extractText(file: File): Promise<string> {
   const chunks: string[] = [];
   for (let i = 1; i <= pages; i += 1) {
     const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2.2 });
+    const viewport = page.getViewport({ scale: 2.4 });
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
     await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
     chunks.push(await ocrImage(canvas));
   }
   return chunks.join("\n");
+}
+
+function normalizeOcr(text: string): string {
+  return text
+    .replace(/\u00a0/g, " ")
+    .replace(/\r/g, "")
+    .replace(/[|]/g, " ")
+    .replace(/[€]/g, " € ")
+    .replace(/\bCts?\b/gi, "ct")
+    .replace(/kWh/gi, "kWh")
+    .replace(/\s+/g, " ");
 }
 
 function deNumber(value: string): number | null {
@@ -97,52 +108,71 @@ function findNumber(text: string, patterns: RegExp[]): number | null {
   return null;
 }
 
+function firstDateRange(text: string): string | null {
+  const m = text.match(/(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})\s*(?:-|–|bis)\s*(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})/i);
+  return m ? `${m[1].replace(/\//g, ".")} - ${m[2].replace(/\//g, ".")}` : null;
+}
+
 function parseText(text: string): BillAnalysisResult {
   const r = emptyBillAnalysis();
   const clean = text.replace(/\u00a0/g, " ").replace(/\r/g, "");
-  const normalized = clean.replace(/[|]/g, " ").replace(/\s+/g, " ");
+  const normalized = normalizeOcr(clean);
+  const lower = normalized.toLowerCase();
 
-  const hasStrom = /\bstrom\b/i.test(clean);
+  const hasStrom = /\bstrom\b/i.test(clean) || /\bstr[o0]m\b/i.test(clean);
   const hasGas = /\bgas\b/i.test(clean);
-  r.energyType = makeField(hasStrom && hasGas ? "Strom + Gas" : hasGas ? "Gas" : hasStrom ? "Strom" : null, "high");
+  r.energyType = makeField(hasStrom && hasGas ? "Strom + Gas" : hasGas ? "Gas" : hasStrom ? "Strom" : null, hasStrom || hasGas ? "high" : "unknown");
 
-  const provider = /\be\.?\s*on\b/i.test(clean) ? "E.ON" : /\benbw\b/i.test(clean) ? "EnBW" : /\bvattenfall\b/i.test(clean) ? "Vattenfall" : null;
+  const provider = /\be\s*\.?\s*on\b/i.test(clean) || /eon/i.test(clean) ? "E.ON" : /\benbw\b/i.test(clean) ? "EnBW" : /\bvattenfall\b/i.test(clean) ? "Vattenfall" : /\bmainova\b/i.test(clean) ? "Mainova" : /\bewe\b/i.test(clean) ? "EWE" : null;
   r.provider = makeField(provider, provider ? "high" : "unknown");
 
-  // Annualized consumption has priority over partial-period totals.
+  // Never take a generic consumption number first. Prefer explicit annualized values and 365-day projections.
   const annual = findNumber(clean, [
-    /jahresverbrauch[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /jahresverbrauch\s+in\s+kwh[\s\S]{0,420}?([\d.]+(?:,\d+)?)/i,
-    /jahresverbrauch[\s\S]{0,420}?365\s*tage[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /365\s*tage\s*(?:umgerechnet|hochgerechnet)[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /auf\s+365\s*tage\s+umgerechnet[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /365\s*tage\s*(?:umgerechnet|hochgerechnet)[^\d]{0,100}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)/i,
-    /auf\s+365\s*tage\s+umgerechnet[^\d]{0,100}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)/i,
+    /(?:jahresverbrauch|jahresverbrauchs?wert)[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /(?:auf|für)\s+365\s*tage[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /365\s*tage[\s\S]{0,260}?(?:hochgerechnet|umgerechnet)[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /(?:hochgerechnet|umgerechnet)[\s\S]{0,220}?365\s*tage[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
   ]);
   r.annualConsumptionKwh = makeField(annual, annual !== null ? "high" : "unknown");
 
+  // OCR often splits a number and unit. Reconstruct an annual value from the line/nearby context.
   if (r.annualConsumptionKwh.value === null) {
-    const annualContext = normalized.match(/(?:ihr\s+)?jahresverbrauch[^\d]{0,180}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)\s*kwh/i);
+    const annualContext = normalized.match(/(?:jahresverbrauch|auf\s+365\s*tage|365\s*tage)[^\d]{0,220}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)\s*kwh/i);
     if (annualContext?.[1]) r.annualConsumptionKwh = makeField(deNumber(annualContext[1]), "medium");
   }
 
+  // Additional E.ON style fallback: if the text contains an annualized consumption section, inspect numbers close to it.
+  if (r.annualConsumptionKwh.value === null) {
+    const idx = lower.search(/jahresverbrauch|365\s*tage|hochgerechnet|umgerechnet/);
+    if (idx >= 0) {
+      const context = normalized.slice(idx, idx + 500);
+      const candidates = [...context.matchAll(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{4,6}(?:,\d+)?)\s*kwh/gi)]
+        .map(m => deNumber(m[1])).filter((n): n is number => n !== null && n >= 500 && n <= 100000);
+      if (candidates.length) r.annualConsumptionKwh = makeField(candidates[candidates.length - 1], "medium");
+    }
+  }
+
   r.workPriceCtPerKwh = makeField(findNumber(clean, [
-    /arbeitspreis[\s\S]{0,120}?([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh/i,
+    /arbeitspreis[\s\S]{0,140}?([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh/i,
     /([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh[\s\S]{0,100}?arbeitspreis/i,
+    /([\d.]+(?:,\d+)?)\s*ct\s*\/\s*kwh/i,
   ]));
   r.basePriceEurPerYear = makeField(findNumber(clean, [
-    /grundpreis[\s\S]{0,120}?([\d.]+(?:,\d+)?)\s*€\s*\/?\s*jahr/i,
-    /grundpreis[\s\S]{0,120}?([\d.]+(?:,\d+)?)\s*€\s*jahr/i,
+    /grundpreis[\s\S]{0,140}?([\d.]+(?:,\d+)?)\s*€\s*\/?\s*(?:jahr|a|monat)/i,
+    /grundpreis[\s\S]{0,140}?([\d.]+(?:,\d+)?)\s*€/i,
   ]));
-  r.monthlyPaymentEur = makeField(findNumber(clean, [/abschlag[\s\S]{0,80}?([\d.]+(?:,\d+)?)\s*€/i]));
+  r.monthlyPaymentEur = makeField(findNumber(clean, [
+    /abschlag(?:\s+monatlich)?[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€/i,
+    /monatlicher\s+abschlag[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€/i,
+  ]));
 
-  const period = clean.match(/(\d{2}\.\d{2}\.\d{4}\s*(?:-|bis)\s*\d{2}\.\d{2}\.\d{4})/);
-  r.billingPeriod = makeField(period?.[1] || null, period ? "medium" : "unknown");
-  const end = clean.match(/vertragsende[\s:]+(\d{2}\.\d{2}\.\d{4})/i);
-  r.contractEnd = makeField(end?.[1] || null, end ? "medium" : "unknown");
-  const cancel = clean.match(/k(?:ü|u)ndigungsfrist[\s:]+([^\n]{1,60})/i);
+  const period = firstDateRange(clean);
+  r.billingPeriod = makeField(period, period ? "high" : "unknown");
+  const end = clean.match(/(?:vertragsende|vertragslaufzeit\s*bis|belieferung\s*bis)[\s:]+(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})/i);
+  r.contractEnd = makeField(end?.[1]?.replace(/\//g, ".") || null, end ? "medium" : "unknown");
+  const cancel = clean.match(/k(?:ü|u)ndigungsfrist[\s:]+([^\n]{1,80})/i);
   r.cancellationPeriod = makeField(cancel?.[1]?.trim() || null, cancel ? "medium" : "unknown");
-  const address = clean.match(/(?:anschrift|lieferanschrift|verbrauchsstelle)[\s:]+([^\n]{5,100})/i);
+  const address = clean.match(/(?:anschrift|lieferanschrift|verbrauchsstelle)[\s:]+([^\n]{5,120})/i);
   r.address = makeField(address?.[1]?.trim() || null, address ? "medium" : "unknown");
   return r;
 }
