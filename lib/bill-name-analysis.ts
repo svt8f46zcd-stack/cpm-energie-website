@@ -1,6 +1,11 @@
 const OCR = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+const PDF = "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/build/pdf.mjs";
 let ocrPromise: Promise<void> | null = null;
+let pdfPromise: Promise<any> | null = null;
 declare global { interface Window { Tesseract?: any } }
+
+type Confidence = "high" | "medium" | "unknown";
+type NameResult = { firstName: string | null; lastName: string | null; confidence: Confidence };
 
 function loadOcr() {
   if (typeof document === "undefined") return Promise.reject(new Error("OCR_LIBRARY_LOAD_FAILED"));
@@ -8,148 +13,285 @@ function loadOcr() {
   if (ocrPromise) return ocrPromise;
   ocrPromise = new Promise<void>((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(`script[data-cpm-name-ocr="${OCR}"]`);
-    if (existing) { existing.addEventListener("load", () => resolve(), { once: true }); existing.addEventListener("error", () => reject(new Error("OCR_LIBRARY_LOAD_FAILED")), { once: true }); return; }
-    const script = document.createElement("script"); script.src = OCR; script.async = true; script.dataset.cpmNameOcr = OCR; script.onload = () => resolve(); script.onerror = () => reject(new Error("OCR_LIBRARY_LOAD_FAILED")); document.head.appendChild(script);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("OCR_LIBRARY_LOAD_FAILED")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = OCR;
+    script.async = true;
+    script.dataset.cpmNameOcr = OCR;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("OCR_LIBRARY_LOAD_FAILED"));
+    document.head.appendChild(script);
   });
   return ocrPromise;
 }
 
+async function pdfjs() {
+  if (pdfPromise) return pdfPromise;
+  const dynamicImport = new Function("u", "return import(u)") as (u: string) => Promise<any>;
+  pdfPromise = dynamicImport(PDF);
+  return pdfPromise;
+}
+
 function cleanName(value: string) {
-  return value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ' -]/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/[|]/g, " ")
+    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ' -]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-const badExact = /^(strom|gas|rechnung|energie|kunden|kunde|kundin|nummer|adresse|anschrift|straße|strasse|weg|allee|platz|ring|gasse|vertrag|vertragspartner|anbieter|bank|iban|bic|seite|datum|betrag|tarif|abschlag|verbrauch|preis|zahlung|konto|service|kontakt|telefon|email|e-mail|gebühr|summe|arbeitspreis|grundpreis|netto|brutto|mwst|kwh|ct|eur|euro|monat|jahr|tage|menge|zeitraum|messstelle|zähler|zaehler|zählernummer|markt|netz|lieferant|lieferung|bonus|entgelt|umlage|steuer)$/i;
-const badFragment = /(?:\bkwh\b|\bkw\b|\bct\/?kwh\b|\beur\b|€|\bnetto\b|\bbrutto\b|\bmwst\b|\b(?:arbeits|grund|zähl|zaehler|verbrauch|abschlag|mess|markt|netz|liefer)preis\b|\b(?:abrechnungs|vertrags|zahlungs)zeitraum\b|\bseite\s*\d|\d)/i;
-const badOcrWords = /^(?:the|your|their|electric|energy|invoice|customer|account|summary|total|page|amount|meter|reading|verbrauch|abrechnung)$/i;
-const suspiciousOcrToken = /^(?:[A-Z]{1,3}|[A-Za-z]*[A-Z][A-Za-z]*[A-Z][A-Za-z]*)$/;
+const honorific = /^(?:herr|frau|herrn|fr\.?|hr\.?)\s+/i;
+const fieldPrefix = /^(?:vorname|vorn\.?|nachname|familienname|name|kund(?:e|in)|vertragspartner(?:in)?|rechnungs?empfänger(?:in)?|name\s+des\s+(?:kunden|kundin))\s*[:.=\-]?\s*/i;
+const contextHeading = /(?:ihre\s+daten|persönliche\s+daten|rechnungsadresse|lieferadresse|verbrauchsstelle|kundendaten|rechnungsempfänger|rechnungsempfaenger|vertragspartner)/i;
+const streetLine = /\b(?:straße|strasse|str\.?|weg|allee|platz|ring|gasse|ufer|chaussee)\b|\b\d{5}\b/i;
+const addressNoise = /(?:kundennummer|kunden.?nr|vertragsnummer|vertragskonto|mandatsreferenz|rechnungsnummer|rechnungsdatum|geburtsdatum|telefon|email|e-mail|www\.|https?:\/\/|iban|bic|bank|seite\s*\d|strom|gas|energie|rechnung|tarif|verbrauch|abschlag|arbeitspreis|grundpreis|netto|brutto|mwst|kwh|ct\s*\/\s*kwh|€|eur|jahr|monat|tage|zeitraum|messstelle|zähler|zaehler|markt|netz|lieferant|lieferung|bonus|entgelt|umlage|steuer)/i;
+const badWord = /^(?:the|your|their|electric|energy|invoice|customer|account|summary|total|page|amount|meter|reading|verbrauch|abrechnung|strom|gas|energie|rechnung|kunde|kundin|name|adresse|anschrift|daten|ihre|persönliche|vertragspartner|rechnungs?empfänger|lieferadresse|verbrauchsstelle|eon|e\.on|optimalstrom)$/i;
+const corrupted = /(?:zv|vz|vb|bv|gq|qg|qx|xq|jv|vj|wq|qw|kq|qk)/i;
 
-function tokenLooksCorrupted(token: string) {
-  const lower = token.toLocaleLowerCase("de-DE");
-  if (badOcrWords.test(lower)) return true;
-  if (/(.)\1\1/.test(lower)) return true;
-  // OCR often creates implausible consonant pairs in table fragments.
-  const unusualPairs = ["zv", "vz", "vb", "bv", "gq", "qg", "qx", "xq", "jv", "vj", "wq", "qw", "kq", "qk"];
-  let unusual = 0;
-  for (const pair of unusualPairs) if (lower.includes(pair)) unusual++;
-  if (unusual > 0) return true;
+function normalizeToken(token: string) {
+  return token
+    .replace(/[0O](?=[a-zäöü])/g, "o")
+    .replace(/[1lI](?=[a-zäöü])/g, "l")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function validToken(token: string) {
+  const value = normalizeToken(token);
+  if (value.length < 2 || value.length > 35) return false;
+  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'’-]*$/.test(value)) return false;
+  if (badWord.test(value) || addressNoise.test(value) || corrupted.test(value)) return false;
+  if (/(.)\1\1/.test(value.toLocaleLowerCase("de-DE"))) return false;
+  const lower = value.toLocaleLowerCase("de-DE");
   const vowels = (lower.match(/[aeiouäöü]/g) || []).length;
-  if (token.length >= 7 && vowels / token.length < 0.22) return true;
-  if (token.length >= 10 && /[^aeiouäöü]{4,}/i.test(token)) return true;
-  return false;
-}
-
-function validNameToken(token: string) {
-  if (token.length < 2 || token.length > 35) return false;
-  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'-]*$/.test(token)) return false;
-  if (badExact.test(token) || badFragment.test(token)) return false;
-  if (tokenLooksCorrupted(token)) return false;
-  if (suspiciousOcrToken.test(token) && token.length <= 4) return false;
-  if (/[a-z][A-Z][a-z]/.test(token)) return false;
+  if (value.length >= 7 && vowels / value.length < 0.22) return false;
+  if (value.length >= 10 && /[^aeiouäöü]{4,}/i.test(value)) return false;
   return true;
 }
 
-function validParts(parts: string[]) {
-  if (parts.length < 2 || parts.length > 5) return false;
-  return parts.every(validNameToken);
+function candidate(value: string) {
+  const withoutTitle = value.replace(honorific, "");
+  const parts = cleanName(withoutTitle).split(" ").filter(Boolean).map(normalizeToken);
+  if (parts.length < 2 || parts.length > 4) return null;
+  if (!parts.every(validToken)) return null;
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
-function candidateFromText(value: string) {
-  const parts = cleanName(value).split(" ").filter(Boolean);
-  return validParts(parts) ? { firstName: parts[0], lastName: parts.slice(1).join(" ") } : null;
+function candidateFromAdjacentLines(lines: string[], index: number) {
+  const current = lines[index] || "";
+  const next = lines[index + 1] || "";
+
+  if (honorific.test(current)) {
+    const direct = candidate(current);
+    if (direct) return direct;
+  }
+  if (honorific.test(next)) {
+    const direct = candidate(next);
+    if (direct) return direct;
+  }
+
+  const strippedCurrent = current.replace(fieldPrefix, "").trim();
+  const strippedNext = next.replace(fieldPrefix, "").trim();
+  const joined = `${strippedCurrent} ${strippedNext}`.trim();
+  const pair = candidate(joined);
+  if (pair) return pair;
+
+  return null;
 }
 
-function extractName(text: string) {
-  const lines = text.split(/\n+/).map(v => v.trim()).filter(Boolean);
-  const firstRe = /^(?:vorname|vorn\.?)[\s:.-]+(.+)$/i;
-  const lastRe = /^(?:nachname|familienname)[\s:.-]+(.+)$/i;
-  const customerRe = /^(?:kunde|kundin|vertragspartner|vertragspartnerin|rechnungs?empfänger|rechnungsempfängerin|name des kunden|name der kundin)[\s:.:/-]*(.+)$/i;
-  const salutationRe = /^(?:herr|frau|herrn|fr\.?|hr\.?)\s+(.+)$/i;
-  let first: string | null = null;
-  let last: string | null = null;
-  let confidence: "high" | "medium" | "unknown" = "unknown";
+function extractName(text: string): NameResult {
+  const lines = text
+    .split(/\n+/)
+    .map(v => v.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
 
+  let firstName: string | null = null;
+  let lastName: string | null = null;
+  let confidence: Confidence = "unknown";
+
+  // 1. Highest confidence: explicit Vorname/Nachname or salutation.
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const fm = line.match(firstRe);
-    if (fm) {
-      const p = candidateFromText(fm[1]);
-      if (p) { first = p.firstName; last ??= p.lastName; confidence = "high"; }
-    }
-    const lm = line.match(lastRe);
-    if (lm) {
-      const value = cleanName(lm[1]);
-      if (validNameToken(value)) { last = value; confidence = "high"; }
-    }
-    const cm = line.match(customerRe);
-    if (cm) {
-      const p = candidateFromText(cm[1]);
-      if (p) { first ??= p.firstName; last ??= p.lastName; confidence = "high"; }
-    }
-    const sm = line.match(salutationRe);
-    if (sm) {
-      const p = candidateFromText(sm[1]);
-      if (p) { first ??= p.firstName; last ??= p.lastName; confidence = "high"; }
+    const firstMatch = line.match(/^(?:vorname|vorn\.?)\s*[:.=\-]?\s*(.+)$/i);
+    if (firstMatch) {
+      const p = candidate(`X ${firstMatch[1]}`);
+      if (p) firstName = p.lastName;
     }
 
-    const context = /(?:ihre daten|persönliche daten|rechnungsadresse|lieferadresse|verbrauchsstelle|anschrift|adresse|kundendaten)/i.test(line);
-    if (context) {
-      for (const candidate of lines.slice(i + 1, i + 7)) {
-        if (badFragment.test(candidate)) continue;
-        const p = candidateFromText(candidate.replace(/^(?:herr|frau|herrn|fr\.?|hr\.?)\s+/i, ""));
-        if (p) {
-          first ??= p.firstName;
-          last ??= p.lastName;
-          confidence = confidence === "unknown" ? "high" : confidence;
-          break;
-        }
-      }
+    const lastMatch = line.match(/^(?:nachname|familienname)\s*[:.=\-]?\s*(.+)$/i);
+    if (lastMatch) {
+      const value = cleanName(lastMatch[1]);
+      if (value.split(" ").length === 1 && validToken(value)) lastName = normalizeToken(value);
     }
 
-    // OCR may put the name on one line and the street on the next.
-    const next = lines[i + 1] || "";
-    if (/\b(?:straße|strasse|weg|allee|platz|ring|gasse)\b|\b\d{5}\b/i.test(next)) {
-      const cleaned = line.replace(/^(?:herr|frau|herrn|fr\.?|hr\.?)\s+/i, "");
-      if (!badFragment.test(cleaned)) {
-        const p = candidateFromText(cleaned);
-        if (p) return { firstName: p.firstName, lastName: p.lastName, confidence: "high" as const };
-      }
+    if (honorific.test(line)) {
+      const p = candidate(line);
+      if (p) return { ...p, confidence: "high" };
     }
   }
+  if (firstName && lastName) return { firstName, lastName, confidence: "high" };
 
-  if (first && last) return { firstName: first, lastName: last, confidence };
-
-  // Conservative fallback: only inspect a small block around explicit customer headings.
+  // 2. Explicit customer/recipient labels. Never accept a line containing billing noise.
   for (let i = 0; i < lines.length; i++) {
-    if (!/(kunde|vertragspartner|rechnungs?empfänger|ihre daten|persönliche daten|anschrift|rechnungsadresse|lieferadresse|verbrauchsstelle|kundendaten)/i.test(lines[i])) continue;
-    for (const candidate of lines.slice(i + 1, i + 7)) {
-      if (badFragment.test(candidate)) continue;
-      const p = candidateFromText(candidate.replace(/^(?:herr|frau|herrn|fr\.?|hr\.?)\s+/i, ""));
-      if (p) return { firstName: p.firstName, lastName: p.lastName, confidence: "medium" as const };
+    const line = lines[i];
+    if (!/(?:rechnungs?empfänger|vertragspartner|kunde(?:n)?daten|name\s+des\s+kunden|kund(?:e|in))/i.test(line)) continue;
+
+    const inline = line.replace(/.*?(?:rechnungs?empfänger|vertragspartner(?:in)?|kunde(?:n)?daten|name\s+des\s+kunden|kund(?:e|in))\s*[:.=\-]?\s*/i, "").trim();
+    if (inline && !addressNoise.test(inline)) {
+      const p = candidate(inline);
+      if (p) return { ...p, confidence: "high" };
+    }
+
+    for (let j = i + 1; j <= Math.min(i + 5, lines.length - 1); j++) {
+      if (streetLine.test(lines[j]) || addressNoise.test(lines[j])) continue;
+      const p = candidate(lines[j]);
+      if (p) return { ...p, confidence: "high" };
+      const pair = candidateFromAdjacentLines(lines, j);
+      if (pair) return { ...pair, confidence: "high" };
     }
   }
 
-  return { firstName: null, lastName: null, confidence: "unknown" as const };
+  // 3. Name directly before the street/ZIP line. This is common on utility bills.
+  for (let i = 1; i < lines.length; i++) {
+    if (!streetLine.test(lines[i])) continue;
+    const previous = lines[i - 1];
+    if (addressNoise.test(previous)) continue;
+    const p = candidate(previous);
+    if (p) return { ...p, confidence: "high" };
+    const pair = candidateFromAdjacentLines(lines, i - 2);
+    if (pair) return { ...pair, confidence: "high" };
+  }
+
+  // 4. Context block: accept only clean two-token names, never arbitrary OCR fragments.
+  for (let i = 0; i < lines.length; i++) {
+    if (!contextHeading.test(lines[i])) continue;
+    for (let j = i + 1; j <= Math.min(i + 4, lines.length - 1); j++) {
+      if (streetLine.test(lines[j]) || addressNoise.test(lines[j])) continue;
+      const p = candidate(lines[j]);
+      if (p) return { ...p, confidence: "medium" };
+    }
+  }
+
+  return { firstName: null, lastName: null, confidence: "unknown" };
 }
 
-async function recognize(file: File) {
+function copySource(source: unknown) {
+  if (typeof document === "undefined") return null;
+  if (!(source instanceof HTMLCanvasElement) && !(source instanceof HTMLImageElement)) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = source instanceof HTMLCanvasElement ? source.width : source.naturalWidth || source.width;
+  canvas.height = source instanceof HTMLCanvasElement ? source.height : source.naturalHeight || source.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(source, 0, 0);
+  return canvas;
+}
+
+function enhance(source: unknown, mode: "color" | "gray" | "threshold") {
+  const original = copySource(source);
+  if (!original) return source;
+  const scale = Math.max(2, Math.min(3.5, 1800 / Math.max(original.width, original.height) * 2));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(original.width * scale);
+  canvas.height = Math.ceil(original.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return original;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
+  if (mode === "color") return canvas;
+
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < data.data.length; i += 4) {
+    const luminance = 0.299 * data.data[i] + 0.587 * data.data[i + 1] + 0.114 * data.data[i + 2];
+    const value = mode === "threshold"
+      ? (luminance < 185 ? 0 : 255)
+      : Math.max(0, Math.min(255, (luminance - 128) * 1.65 + 128));
+    data.data[i] = data.data[i + 1] = data.data[i + 2] = value;
+  }
+  ctx.putImageData(data, 0, 0);
+  return canvas;
+}
+
+async function imageCanvas(file: File) {
+  return new Promise<HTMLCanvasElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth || image.width;
+      canvas.height = image.naturalHeight || image.height;
+      const ctx = canvas.getContext("2d");
+      URL.revokeObjectURL(url);
+      if (!ctx) return reject(new Error("IMAGE_DECODE_FAILED"));
+      ctx.drawImage(image, 0, 0);
+      resolve(canvas);
+    };
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error("IMAGE_DECODE_FAILED")); };
+    image.src = url;
+  });
+}
+
+async function recognizeSource(source: unknown) {
   await loadOcr();
   if (!window.Tesseract) throw new Error("OCR_LIBRARY_LOAD_FAILED");
-  const result = await window.Tesseract.recognize(file, "deu", { logger: () => undefined });
-  return String(result?.data?.text || "");
+  const modes: Array<"color" | "gray" | "threshold"> = ["color", "gray", "threshold"];
+  const texts: string[] = [];
+  for (const mode of modes) {
+    const result = await window.Tesseract.recognize(
+      enhance(source, mode),
+      "deu",
+      { logger: () => undefined, tessedit_pageseg_mode: mode === "color" ? 6 : 11, preserve_interword_spaces: "1", user_defined_dpi: "300" },
+    );
+    const text = String(result?.data?.text || "");
+    if (text.trim()) texts.push(text);
+    const found = extractName(text);
+    if (found.firstName && found.lastName && found.confidence === "high") return found;
+  }
+
+  let best: NameResult = { firstName: null, lastName: null, confidence: "unknown" };
+  for (const text of texts) {
+    const found = extractName(text);
+    if (found.confidence === "high") return found;
+    if (found.confidence === "medium" && best.confidence === "unknown") best = found;
+  }
+  return best;
+}
+
+async function recognizeImage(file: File) {
+  return recognizeSource(await imageCanvas(file));
+}
+
+async function recognizePdf(file: File) {
+  const pdf = await pdfjs();
+  const documentProxy = await pdf.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  let best: NameResult = { firstName: null, lastName: null, confidence: "unknown" };
+  for (let pageNumber = 1; pageNumber <= Math.min(12, documentProxy.numPages); pageNumber++) {
+    const page = await documentProxy.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 2.6 });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) continue;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const found = await recognizeSource(canvas);
+    if (found.confidence === "high") return found;
+    if (found.confidence === "medium" && best.confidence === "unknown") best = found;
+  }
+  return best;
 }
 
 export async function analyzeBillNames(files: File[]) {
-  let firstName: string | null = null;
-  let lastName: string | null = null;
-  let confidence: "high" | "medium" | "unknown" = "unknown";
+  let best: NameResult = { firstName: null, lastName: null, confidence: "unknown" };
   for (const file of files.slice(0, 12)) {
-    if (file.type === "application/pdf") continue;
-    const result = extractName(await recognize(file));
-    if (!firstName && result.firstName) firstName = result.firstName;
-    if (!lastName && result.lastName) lastName = result.lastName;
-    if (result.confidence === "high") confidence = "high";
-    else if (result.confidence === "medium" && confidence === "unknown") confidence = "medium";
-    if (firstName && lastName && confidence === "high") break;
+    const result = file.type === "application/pdf" ? await recognizePdf(file) : await recognizeImage(file);
+    if (result.confidence === "high" && result.firstName && result.lastName) return result;
+    if (result.confidence === "medium" && best.confidence === "unknown") best = result;
   }
-  return { firstName, lastName, confidence };
+  return best;
 }
