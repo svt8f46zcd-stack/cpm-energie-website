@@ -8,6 +8,21 @@ export default function Home() {
     <div className="desktop-only"><DesktopHero /></div>
     <div className="mobile-only"><MobileHero /></div>
 
+    <div className="cpm-marquee" aria-hidden="true">
+      <div className="cpm-marquee-track">
+        <span>✦ 0 € Anbieterprovision</span>
+        <span>✦ Offengelegte Rechenformel</span>
+        <span>✦ Monatlich kündbar</span>
+        <span>✦ Volle Preisgarantie</span>
+        <span>✦ Keine Bonus-Fallen</span>
+        <span>✦ 0 € Anbieterprovision</span>
+        <span>✦ Offengelegte Rechenformel</span>
+        <span>✦ Monatlich kündbar</span>
+        <span>✦ Volle Preisgarantie</span>
+        <span>✦ Keine Bonus-Fallen</span>
+      </div>
+    </div>
+
     <section className="container py-16 md:py-24">
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-bold uppercase tracking-[.18em] text-[#66d5ff]">CPM Energie</p>
