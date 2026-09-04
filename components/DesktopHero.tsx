@@ -2,6 +2,7 @@ import HeroAddressCheck from "@/components/HeroAddressCheck";
 import BillUpload from "@/components/BillUpload";
 
 const HERO_IMAGE = "https://images.unsplash.com/photo-1785125674389-9d0b74531ba5?auto=format&fit=crop&fm=jpg&ixlib=rb-4.1.0&q=85&w=2400";
+const BILL_CONTACT_PATH = "/cpm-energie-website/kontakt/rechnung/";
 
 export function DesktopHero() {
   return (
@@ -23,7 +24,7 @@ export function DesktopHero() {
             </div>
           </div>
           <HeroAddressCheck />
-          <BillUpload onContinue={() => { window.location.href = "/kontakt/rechnung"; }} />
+          <BillUpload onContinue={() => { window.location.assign(BILL_CONTACT_PATH); }} />
           <div className="mt-5 grid max-w-xl grid-cols-3 gap-2 text-xs sm:gap-3 sm:text-sm">
             <div className="rounded-xl border border-white/10 bg-[#06111dcc] px-3 py-3 text-center backdrop-blur-xl"><strong className="block text-white">100 % kostenlos</strong><span className="text-slate-400">keine Prüfgebühr</span></div>
             <div className="rounded-xl border border-white/10 bg-[#06111dcc] px-3 py-3 text-center backdrop-blur-xl"><strong className="block text-white">Kein Wechselzwang</strong><span className="text-slate-400">du entscheidest</span></div>
