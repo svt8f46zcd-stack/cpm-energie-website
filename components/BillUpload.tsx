@@ -4,9 +4,17 @@ import { useRef, useState } from "react";
 import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis-v3";
 
 const labels: Array<[keyof BillAnalysisResult, string]> = [
-  ["energyType", "Energieart"], ["provider", "Anbieter"], ["annualConsumptionKwh", "Jahresverbrauch"],
-  ["workPriceCtPerKwh", "Arbeitspreis"], ["basePriceEurPerYear", "Grundpreis"], ["monthlyPaymentEur", "Monatlicher Abschlag"],
-  ["billingPeriod", "Abrechnungszeitraum"], ["contractEnd", "Vertragsende"], ["cancellationPeriod", "Kündigungsfrist"], ["address", "Adresse"],
+  ["energyType", "Energieart"],
+  ["provider", "Anbieter"],
+  ["tariffName", "Tarif"],
+  ["annualConsumptionKwh", "Jahresverbrauch"],
+  ["workPriceCtPerKwh", "Arbeitspreis"],
+  ["basePriceEurPerYear", "Grundpreis"],
+  ["monthlyPaymentEur", "Letzter Abschlag"],
+  ["billingPeriod", "Abrechnungszeitraum"],
+  ["contractEnd", "Vertragsende"],
+  ["cancellationPeriod", "Kündigungsfrist"],
+  ["address", "Verbrauchsstelle"],
 ];
 
 function setReactInputValue(input: HTMLInputElement, value: string) {
@@ -81,9 +89,7 @@ export default function BillUpload() {
         result.workPriceCtPerKwh.value,
         result.basePriceEurPerYear.value,
       ];
-      if (!keyValues.some(value => value !== null && value !== "")) {
-        throw new Error("NO_USABLE_DATA");
-      }
+      if (!keyValues.some(value => value !== null && value !== "")) throw new Error("NO_USABLE_DATA");
       setAnalysis(result);
       setStatus("done");
       applyRecognizedData(result);
@@ -95,7 +101,6 @@ export default function BillUpload() {
           : "Die Rechnung konnte nicht eindeutig ausgewertet werden. Bitte prüfe die Angaben oder gib den Verbrauch manuell ein.",
       );
     } finally {
-      // Allows selecting the same file again without needing a page reload.
       if (inputRef.current) inputRef.current.value = "";
     }
   };
@@ -105,17 +110,20 @@ export default function BillUpload() {
       <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#19b7ff]/10 text-xl text-[#66d5ff]">↑</div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-white">Abrechnung hochladen</p>
-        <p className="mt-1 text-xs leading-5 text-slate-400">PDF oder Foto, maximal 10 MB. Bei digitalen PDFs werden die vorhandenen Textdaten direkt gelesen. Bei Scans oder Fotos wird automatisch OCR verwendet. Die Datei wird nicht an CPM Energie übertragen.</p>
+        <p className="mt-1 text-xs leading-5 text-slate-400">PDF oder Foto, maximal 10 MB. Digitale PDFs werden direkt ausgelesen. Bei Scans und Fotos übernimmt OCR die Erkennung. Die Datei wird nicht an CPM Energie übertragen.</p>
         <button type="button" disabled={status === "analyzing"} onClick={() => inputRef.current?.click()} className="mt-3 rounded-xl border border-[#19b7ff]/35 bg-[#19b7ff]/10 px-4 py-2.5 text-sm font-bold text-[#8ce4ff] transition hover:bg-[#19b7ff]/20 disabled:opacity-50">
-          {status === "analyzing" ? "Rechnung wird geprüft …" : "Datei auswählen"}
+          {status === "analyzing" ? "Rechnung wird geprüft …" : status === "done" ? "Andere Rechnung testen" : "Rechnung auswählen"}
         </button>
         <input ref={inputRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
         {fileName && <p className="mt-2 truncate text-xs text-slate-300">✓ {fileName}</p>}
-        {status === "analyzing" && <p className="mt-2 text-xs text-[#8ce4ff]">Digitale Rechnungen werden zuerst direkt ausgelesen. Nur wenn der Text fehlt oder unvollständig ist, startet die langsamere OCR Erkennung.</p>}
+        {status === "analyzing" && <p className="mt-2 text-xs text-[#8ce4ff]">Die Rechnung wird zuerst auf vorhandene Textdaten geprüft. Falls die Angaben nicht vollständig vorliegen, wird automatisch OCR nachgeschaltet.</p>}
         {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
         {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-          <p className="text-sm font-bold text-white">Erkannte Angaben</p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">Bei mehreren Tarifblöcken werden Arbeitspreis und Grundpreis bevorzugt aus der eindeutig beschrifteten Preiszeile gelesen.</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-white">Rechnung erkannt</p>
+            <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">Automatisch</span>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-400">Arbeitspreis und Grundpreis werden gezielt aus den gekennzeichneten Preiszeilen gelesen. Bei mehreren Tarifblöcken wird nicht einfach der nächste beliebige Eurobetrag übernommen.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {labels.map(([key, label]) => {
               const f = analysis[key];
