@@ -6,7 +6,8 @@ import Link from "next/link";
 const OPENPLZ_API = "https://openplzapi.org/de";
 const NOMINATIM_API = "https://nominatim.openstreetmap.org";
 type Locality = { name?: string; municipality?: { name?: string } };
-type NominatimResult = { address?: { city?: string; town?: string; village?: string; municipality?: string } };
+type NominatimAddress = { city?: string; town?: string; village?: string; municipality?: string; road?: string };
+type NominatimResult = { address?: NominatimAddress };
 
 export default function HeroAddressCheck() {
   const [plz, setPlz] = useState(""); const [cities, setCities] = useState<string[]>([]); const [city, setCity] = useState(""); const [street, setStreet] = useState(""); const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]); const [loadingCities, setLoadingCities] = useState(false); const [loadingStreets, setLoadingStreets] = useState(false); const [showCities, setShowCities] = useState(false); const [showStreets, setShowStreets] = useState(false);
@@ -20,17 +21,14 @@ export default function HeroAddressCheck() {
         if (!response.ok) throw new Error();
         const data = await response.json() as Locality[];
         const unique = Array.from(new Set(data.map(x => (x.name || x.municipality?.name || "").trim()).filter(Boolean)));
-        setCities(unique);
-        setCity(prev => unique.includes(prev) ? prev : unique.length === 1 ? unique[0] : "");
-        setStreet(prev => unique.length === 1 && city === unique[0] ? prev : "");
-        setShowCities(unique.length > 1);
+        setCities(unique); setCity(prev => unique.includes(prev) ? prev : unique.length === 1 ? unique[0] : ""); setStreet(""); setShowCities(unique.length > 1);
       } catch {
         try {
           const params = new URLSearchParams({ postalcode: plz, country: "Germany", format: "jsonv2", addressdetails: "1", limit: "50" });
           const response = await fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } }); if (!response.ok) throw new Error();
           const data = await response.json() as NominatimResult[];
           const unique = Array.from(new Set(data.map(x => { const a = x.address || {}; return a.city || a.town || a.village || a.municipality || ""; }).filter(Boolean)));
-          setCities(unique); setCity(prev => unique.includes(prev) ? prev : unique.length === 1 ? unique[0] : ""); setShowCities(unique.length > 1);
+          setCities(unique); setCity(prev => unique.includes(prev) ? prev : unique.length === 1 ? unique[0] : ""); setStreet(""); setShowCities(unique.length > 1);
         } catch { setCities([]); setShowCities(false); }
       } finally { setLoadingCities(false); }
     })();
