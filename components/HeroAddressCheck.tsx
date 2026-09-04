@@ -5,45 +5,33 @@ import Link from "next/link";
 
 const OPENPLZ_API = "https://openplzapi.org/de";
 const NOMINATIM_API = "https://nominatim.openstreetmap.org";
-
 type Locality = { name?: string; municipality?: { name?: string } };
 type NominatimResult = { address?: { city?: string; town?: string; village?: string; municipality?: string } };
 
 export default function HeroAddressCheck() {
-  const [plz, setPlz] = useState("");
-  const [cities, setCities] = useState<string[]>([]);
-  const [city, setCity] = useState("");
-  const [street, setStreet] = useState("");
-  const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [loadingStreets, setLoadingStreets] = useState(false);
-  const [showCities, setShowCities] = useState(false);
-  const [showStreets, setShowStreets] = useState(false);
+  const [plz, setPlz] = useState(""); const [cities, setCities] = useState<string[]>([]); const [city, setCity] = useState(""); const [street, setStreet] = useState(""); const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]); const [loadingCities, setLoadingCities] = useState(false); const [loadingStreets, setLoadingStreets] = useState(false); const [showCities, setShowCities] = useState(false); const [showStreets, setShowStreets] = useState(false);
 
   useEffect(() => {
     if (!/^\d{5}$/.test(plz)) { setCities([]); setCity(""); setStreet(""); setStreetSuggestions([]); setShowCities(false); return; }
-    const controller = new AbortController();
-    setLoadingCities(true);
+    const controller = new AbortController(); setLoadingCities(true);
     (async () => {
       try {
         const response = await fetch(`${OPENPLZ_API}/Localities?postalCode=${plz}&page=1&pageSize=50`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } });
         if (!response.ok) throw new Error();
-        const data = (await response.json()) as Locality[];
+        const data = await response.json() as Locality[];
         const unique = Array.from(new Set(data.map(x => (x.name || x.municipality?.name || "").trim()).filter(Boolean)));
         setCities(unique);
-        if (unique.length === 1) { setCity(unique[0]); setShowCities(false); }
-        else if (unique.length > 1 && !unique.includes(city)) setShowCities(true);
+        setCity(prev => unique.includes(prev) ? prev : unique.length === 1 ? unique[0] : "");
+        setStreet(prev => unique.length === 1 && city === unique[0] ? prev : "");
+        setShowCities(unique.length > 1);
       } catch {
         try {
           const params = new URLSearchParams({ postalcode: plz, country: "Germany", format: "jsonv2", addressdetails: "1", limit: "50" });
-          const response = await fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } });
-          if (!response.ok) throw new Error();
-          const data = (await response.json()) as NominatimResult[];
+          const response = await fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } }); if (!response.ok) throw new Error();
+          const data = await response.json() as NominatimResult[];
           const unique = Array.from(new Set(data.map(x => { const a = x.address || {}; return a.city || a.town || a.village || a.municipality || ""; }).filter(Boolean)));
-          setCities(unique);
-          if (unique.length === 1) { setCity(unique[0]); setShowCities(false); }
-          else if (unique.length > 1 && !unique.includes(city)) setShowCities(true);
-        } catch { setCities([]); }
+          setCities(unique); setCity(prev => unique.includes(prev) ? prev : unique.length === 1 ? unique[0] : ""); setShowCities(unique.length > 1);
+        } catch { setCities([]); setShowCities(false); }
       } finally { setLoadingCities(false); }
     })();
     return () => controller.abort();
@@ -51,23 +39,14 @@ export default function HeroAddressCheck() {
 
   useEffect(() => {
     if (!/^\d{5}$/.test(plz) || !city || street.trim().length < 2) { setStreetSuggestions([]); setLoadingStreets(false); return; }
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
+    const controller = new AbortController(); const timer = window.setTimeout(async () => {
       setLoadingStreets(true);
-      try {
-        const params = new URLSearchParams({ street: street.trim(), city, postalcode: plz, countrycodes: "de", format: "jsonv2", addressdetails: "1", limit: "10" });
-        const response = await fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } });
-        if (!response.ok) throw new Error();
-        const data = (await response.json()) as NominatimResult[];
-        setStreetSuggestions(Array.from(new Set(data.map(x => x.address?.road || "").filter(Boolean))).slice(0, 8));
-      } catch { setStreetSuggestions([]); } finally { setLoadingStreets(false); }
-    }, 250);
-    return () => { controller.abort(); window.clearTimeout(timer); };
+      try { const params = new URLSearchParams({ street: street.trim(), city, postalcode: plz, countrycodes: "de", format: "jsonv2", addressdetails: "1", limit: "10" }); const response = await fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } }); if (!response.ok) throw new Error(); const data = await response.json() as NominatimResult[]; setStreetSuggestions(Array.from(new Set(data.map(x => x.address?.road || "").filter(Boolean))).slice(0, 8)); } catch { setStreetSuggestions([]); } finally { setLoadingStreets(false); }
+    }, 250); return () => { controller.abort(); window.clearTimeout(timer); };
   }, [plz, city, street]);
 
   const ready = /^\d{5}$/.test(plz) && !!city && !!street.trim();
   const href = useMemo(() => `/ersparnisrechner?plz=${encodeURIComponent(plz)}&ort=${encodeURIComponent(city)}&strasse=${encodeURIComponent(street)}`, [plz, city, street]);
-
   return <div className="mt-9 max-w-xl rounded-[1.6rem] border border-[#19b7ff]/25 bg-[#06111dcc] p-5 shadow-2xl shadow-black/30 backdrop-blur-xl">
     <div className="mb-4"><p className="text-sm font-bold text-white">Tarif kostenlos prüfen</p><p className="mt-1 text-xs text-slate-400">Nur einmal Adresse eingeben. Wir übernehmen sie im weiteren Verlauf.</p></div>
     <div className="grid gap-3 sm:grid-cols-2">
