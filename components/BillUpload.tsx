@@ -113,6 +113,9 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
     }
   };
 
+  const recipientComplete = Boolean(analysis?.firstName?.value && analysis?.lastName?.value);
+  const recipientConfidence = recipientComplete ? analysis?.firstName?.confidence || "unknown" : "unknown";
+
   return <div className="mt-4 rounded-2xl border border-white/10 bg-white/[.035] p-4 text-left">
     <div className="flex items-start gap-3"><div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#19b7ff]/10 text-xl text-[#66d5ff]">↑</div><div className="min-w-0 flex-1">
       <p className="font-bold text-white">Rechnung hochladen</p>
@@ -125,7 +128,7 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold text-white">Rechnung erkannt</p><span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">{files.length > 1 ? `${files.length} Seiten` : "Automatisch"}</span></div>
         <p className="mt-1 text-xs leading-5 text-slate-400">Die erkannten Angaben werden zusammengeführt, wenn du mehrere Seiten hochlädst. So wird eine mehrseitige Rechnung nicht als mehrere Rechnungen behandelt.</p>
-        {(analysis.firstName?.value || analysis.lastName?.value) && <div className="mt-3 rounded-lg border border-[#19b7ff]/15 bg-[#19b7ff]/5 p-3"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Rechnungsempfänger</p><p className="mt-1 text-base font-bold text-white">{[analysis.firstName?.value, analysis.lastName?.value].filter(Boolean).join(" ")}</p><p className="mt-0.5 text-[10px] text-slate-500">Automatisch aus der Rechnung erkannt</p></div>}
+        <div className="mt-3 rounded-lg border border-[#19b7ff]/15 bg-[#19b7ff]/5 p-3"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Rechnungsempfänger</p><p className="mt-1 text-base font-bold text-white">{recipientComplete ? [analysis.firstName?.value, analysis.lastName?.value].filter(Boolean).join(" ") : "Nicht sicher erkannt"}</p><p className="mt-0.5 text-[10px] text-slate-500">{recipientComplete ? `Automatisch aus der Rechnung erkannt · Sicherheit: ${recipientConfidence}` : "Kein belastbarer Vorname und Nachname erkannt. Es wurde kein unsicherer OCR Treffer übernommen."}</p></div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">{labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{displayValue(key, f.value)}</p><p className="mt-0.5 text-[10px] text-slate-500">Sicherheit: {f.confidence}</p></div>; })}</div>
         <p className="mt-3 text-xs font-semibold text-emerald-300">✓ Erkannte Werte wurden in den Tarifcheck übernommen und bleiben für das Kontaktformular erhalten.</p>
         {onContinue && <button type="button" onClick={onContinue} className="mt-4 w-full rounded-full bg-[#19b7ff] px-5 py-3.5 text-sm font-bold text-[#03101c] shadow-[0_10px_30px_rgba(25,183,255,.16)] transition hover:brightness-110">Weiter zur Adresse und Anfrage →</button>}
