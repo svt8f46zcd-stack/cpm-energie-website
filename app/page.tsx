@@ -3,6 +3,7 @@ import { DesktopHero } from "@/components/DesktopHero";
 import { MobileHero } from "@/components/MobileHero";
 
 const providers = ["E.ON", "goldgas", "ENTEGA", "eprimo", "Yello", "Vattenfall", "Mainova", "RheinEnergie", "EWE", "LichtBlick"];
+const ASSET_BASE = "/cpm-energie-website";
 
 const benefits = [
   { number: "01", title: "Rechnung statt Schätzen", text: "Lade deine Strom oder Gasrechnung hoch. Die wichtigsten Angaben werden direkt aus dem Dokument ausgelesen." },
@@ -102,7 +103,7 @@ export default function Home() {
         <section className="border-y border-white/10 bg-[#050d18]" aria-labelledby="personal-heading">
           <div className="container grid gap-10 py-16 md:grid-cols-[.65fr_1.35fr] md:items-center md:py-20">
             <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1b30] shadow-2xl shadow-black/30">
-              <div className="aspect-[4/5] overflow-hidden"><img src="/cristiano.svg" alt="Cristiano Moreira, persönliche Energieberatung bei CPM Energie" className="h-full w-full object-cover" /></div>
+              <div className="aspect-[4/5] overflow-hidden"><img src={`${ASSET_BASE}/cristiano.svg`} alt="Cristiano Moreira, persönliche Energieberatung bei CPM Energie" className="h-full w-full object-cover" /></div>
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-[.22em] text-[#66d5ff]">Persönlich statt anonym</p>
