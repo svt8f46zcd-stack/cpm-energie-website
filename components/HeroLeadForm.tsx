@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { clearBillSession, getBillSession, type BillSessionMeta } from "@/lib/bill-session";
 
+const SUBMIT_URL = "https://formsubmit.co/ajax/cristiano02moreira@gmail.com";
+
 export default function HeroLeadForm() {
   const [filesCount, setFilesCount] = useState(0);
   const [meta, setMeta] = useState<BillSessionMeta | null>(null);
@@ -21,7 +23,7 @@ export default function HeroLeadForm() {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!consent) {
-      setError("Bitte bestätigen Sie zuerst die Einwilligung.");
+      setError("Bitte bestätige zuerst die Einwilligung.");
       return;
     }
     setLoading(true);
@@ -29,24 +31,31 @@ export default function HeroLeadForm() {
     try {
       const session = await getBillSession();
       if (!session.files.length) throw new Error("NO_BILL");
+
       const form = new FormData(e.currentTarget);
       form.set("consent", "true");
       form.set("source", "hero-bill-upload");
+      form.set("_subject", "Neue CPM Energie Anfrage mit Abrechnung");
+      form.set("_template", "table");
+      form.set("_captcha", "false");
       if (session.meta?.analysis) form.append("billAnalysis", JSON.stringify(session.meta.analysis));
       session.files.forEach((file, index) => form.append("billFiles", file, `${String(index + 1).padStart(2, "0")}_${file.name}`));
 
-      const res = await fetch("/api/kontakt", { method: "POST", body: form });
+      const res = await fetch(SUBMIT_URL, { method: "POST", body: form, headers: { Accept: "application/json" } });
       if (!res.ok) throw new Error("SEND_FAILED");
+      const payload = await res.json().catch(() => null);
+      if (payload && payload.success === false) throw new Error("SEND_FAILED");
+
       setSent(true);
       await clearBillSession();
     } catch (err) {
-      setError(err instanceof Error && err.message === "NO_BILL" ? "Die Abrechnung ist nicht mehr verfügbar. Bitte lade sie erneut hoch." : "Die Anfrage konnte gerade nicht gesendet werden. Bitte versuche es erneut.");
+      setError(err instanceof Error && err.message === "NO_BILL" ? "Die Abrechnung ist nicht mehr verfügbar. Bitte lade sie erneut hoch." : "Die Anfrage konnte gerade nicht gesendet werden. Bitte versuche es erneut. Deine Angaben und die Abrechnung bleiben erhalten.");
     } finally {
       setLoading(false);
     }
   }
 
-  if (sent) return <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5 text-center"><p className="font-bold text-white">Anfrage erfolgreich übermittelt.</p><p className="mt-1 text-sm text-slate-300">Deine Abrechnung wurde zusammen mit deinen Kontaktdaten übermittelt.</p></div>;
+  if (sent) return <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5 text-center"><p className="font-bold text-white">Anfrage erfolgreich übermittelt.</p><p className="mt-1 text-sm text-slate-300">Deine Kontaktdaten und deine Abrechnung wurden gemeinsam übermittelt.</p></div>;
 
   return <div className="mt-5 rounded-2xl border border-[#19b7ff]/20 bg-[#06111dcc] p-5 shadow-xl shadow-black/20 backdrop-blur-xl">
     <div className="flex items-center justify-between gap-3">
