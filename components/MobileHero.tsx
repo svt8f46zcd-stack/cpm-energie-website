@@ -1,4 +1,5 @@
 import HeroAddressCheck from "@/components/HeroAddressCheck";
+import BillUpload from "@/components/BillUpload";
 
 const HERO_IMAGE = "https://images.unsplash.com/photo-1785125674389-9d0b74531ba5?auto=format&fit=crop&fm=jpg&ixlib=rb-4.1.0&q=85&w=1600";
 
@@ -9,7 +10,7 @@ export function MobileHero() {
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(2,9,20,.68)_0%,rgba(2,9,20,.56)_30%,rgba(2,9,20,.9)_66%,#020914_100%)]" />
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_32%,rgba(25,183,255,.24),transparent_34%)]" />
 
-      <div className="relative mx-auto flex min-h-[760px] w-full max-w-[620px] flex-col px-5 pb-10 pt-10">
+      <div className="relative mx-auto flex min-h-[860px] w-full max-w-[620px] flex-col px-5 pb-10 pt-10">
         <div className="text-center">
           <p className="mx-auto inline-flex rounded-full border border-[#19b7ff]/40 bg-[#031527]/80 px-3.5 py-2 text-xs font-bold text-[#8be3ff] shadow-lg backdrop-blur-xl">100% kostenlos & unverbindlich</p>
           <h1 className="mt-5 text-[2.55rem] font-black leading-[.98] tracking-[-.045em] text-white">Dein Energievergleich für eine bessere <span className="gradient-text">Zukunft.</span></h1>
@@ -27,6 +28,7 @@ export function MobileHero() {
               </div>
             </div>
             <HeroAddressCheck />
+            <BillUpload />
           </div>
         </div>
 
