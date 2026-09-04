@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis-v3";
+import { saveBillSession } from "@/lib/bill-session";
 
 const labels: Array<[keyof BillAnalysisResult, string]> = [
   ["energyType", "Energieart"],
@@ -58,6 +59,20 @@ export default function BillUpload() {
   const [status, setStatus] = useState<"idle" | "ready" | "analyzing" | "done">("idle");
   const [analysis, setAnalysis] = useState<BillAnalysisResult | null>(null);
 
+  useEffect(() => {
+    // Die Unterlagen bleiben beim Wechsel vom Tarifcheck zum Kontaktformular erhalten.
+    // Die eigentlichen Dateien liegen nur im lokalen IndexedDB Speicher des Browsers.
+    let cancelled = false;
+    import("@/lib/bill-session").then(({ getBillSession }) => getBillSession()).then(session => {
+      if (cancelled || !session.files.length) return;
+      setFiles(session.files);
+      setAnalysis(session.meta?.analysis || null);
+      setStatus(session.meta?.analysis ? "done" : "ready");
+      if (session.meta?.analysis) applyRecognizedData(session.meta.analysis);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+
   const mergeFiles = (incoming: File[]) => {
     const valid = incoming.filter(file => ["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.type));
     const oversized = valid.filter(file => file.size > 10 * 1024 * 1024);
@@ -74,6 +89,7 @@ export default function BillUpload() {
     setFiles(unique);
     setStatus(unique.length ? "ready" : "idle");
     setAnalysis(null);
+    void saveBillSession(unique, null).catch(() => undefined);
   };
 
   const removeFile = (index: number) => {
@@ -81,6 +97,7 @@ export default function BillUpload() {
     setFiles(next);
     setAnalysis(null);
     setStatus(next.length ? "ready" : "idle");
+    void saveBillSession(next, null).catch(() => undefined);
   };
 
   const analyzeFiles = async () => {
@@ -95,23 +112,15 @@ export default function BillUpload() {
         (Object.keys(acc) as Array<keyof BillAnalysisResult>).forEach(key => {
           const candidate = current[key];
           if (candidate.value === null || candidate.value === "") return;
-
           if (acc[key].value === null || acc[key].value === "") {
             acc[key] = candidate;
             return;
           }
-
-          if (candidate.confidence === "high" && acc[key].confidence !== "high") {
-            acc[key] = candidate;
-          }
+          if (candidate.confidence === "high" && acc[key].confidence !== "high") acc[key] = candidate;
         });
         return acc;
       }, structuredClone(results[0]));
 
-      // Bei mehrseitigen Rechnungen stehen auf einzelnen Seiten oft Teilverbräuche,
-      // während die Seite mit dem Rückblick den vollständigen Jahresverbrauch enthält.
-      // Unter den hoch sicheren Erkennungen ist deshalb der größte plausible Verbrauch
-      // die robustere Auswahl als einfach der Wert der ersten Seite.
       const consumptionCandidates = results
         .map(result => result.annualConsumptionKwh)
         .filter(field => typeof field.value === "number" && field.value >= 300 && field.value <= 100000 && field.confidence === "high")
@@ -129,6 +138,7 @@ export default function BillUpload() {
       setAnalysis(merged);
       setStatus("done");
       applyRecognizedData(merged);
+      await saveBillSession(files, merged);
     } catch (err) {
       setStatus("ready");
       setError(err instanceof Error && err.message === "OCR_LIBRARY_LOAD_FAILED" ? "Die Rechnungserkennung konnte nicht geladen werden. Bitte erneut versuchen." : "Die Rechnung konnte nicht eindeutig ausgewertet werden. Bitte prüfe die Dateien oder gib den Verbrauch manuell ein.");
@@ -140,7 +150,7 @@ export default function BillUpload() {
       <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#19b7ff]/10 text-xl text-[#66d5ff]">↑</div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-white">Abrechnung hochladen</p>
-        <p className="mt-1 text-xs leading-5 text-slate-400">PDF oder mehrere Seiten als Fotos, maximal 12 Dateien. Mehrseitige Abrechnungen werden gemeinsam geprüft. Die Dateien werden nicht an CPM Energie übertragen.</p>
+        <p className="mt-1 text-xs leading-5 text-slate-400">PDF oder mehrere Seiten als Fotos, maximal 12 Dateien. Mehrseitige Abrechnungen werden gemeinsam geprüft. Die Dateien bleiben während deiner Anfrage lokal im Browser.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" disabled={status === "analyzing"} onClick={() => inputRef.current?.click()} className="rounded-xl border border-[#19b7ff]/35 bg-[#19b7ff]/10 px-4 py-2.5 text-sm font-bold text-[#8ce4ff] transition hover:bg-[#19b7ff]/20 disabled:opacity-50">
             {files.length ? "Weitere Seite hinzufügen" : "Rechnung auswählen"}
@@ -162,7 +172,7 @@ export default function BillUpload() {
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{displayValue(key, f.value)}</p><p className="mt-0.5 text-[10px] text-slate-500">Sicherheit: {f.confidence}</p></div>; })}
           </div>
-          <p className="mt-3 text-xs font-semibold text-emerald-300">✓ Erkannte Werte wurden in den Tarifcheck übernommen.</p>
+          <p className="mt-3 text-xs font-semibold text-emerald-300">✓ Erkannte Werte wurden in den Tarifcheck übernommen und bleiben für das Kontaktformular erhalten.</p>
         </div>}
       </div>
     </div>
