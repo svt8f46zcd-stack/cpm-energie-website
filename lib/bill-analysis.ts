@@ -48,8 +48,13 @@ async function ocrImage(image: unknown): Promise<string> {
   if (!window.Tesseract) throw new Error("OCR_LIBRARY_LOAD_FAILED");
   const worker = await window.Tesseract.createWorker("deu");
   try {
-    const result = await worker.recognize(image);
-    return result.data.text || "";
+    const texts: string[] = [];
+    for (const mode of ["6", "11"]) {
+      await worker.setParameters({ tessedit_pageseg_mode: mode });
+      const result = await worker.recognize(image);
+      if (result.data.text) texts.push(result.data.text);
+    }
+    return texts.join("\n");
   } finally { await worker.terminate(); }
 }
 
@@ -104,30 +109,32 @@ function parseText(text: string): BillAnalysisResult {
   const provider = /\be\.?\s*on\b/i.test(clean) ? "E.ON" : /\benbw\b/i.test(clean) ? "EnBW" : /\bvattenfall\b/i.test(clean) ? "Vattenfall" : null;
   r.provider = makeField(provider, provider ? "high" : "unknown");
 
-  // Prefer an explicit annualized consumption. Never confuse a partial billing-period total with the annual value.
+  // Annualized consumption has priority over partial-period totals.
   const annual = findNumber(clean, [
-    /jahresverbrauch[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /jahresverbrauch\s+in\s+kwh[\s\S]{0,350}?([\d.]+(?:,\d+)?)/i,
-    /jahresverbrauch[\s\S]{0,350}?365\s*tage[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /365\s*tage\s*(?:umgerechnet|hochgerechnet)[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /auf\s+365\s*tage\s+umgerechnet[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /jahresverbrauch[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /jahresverbrauch\s+in\s+kwh[\s\S]{0,420}?([\d.]+(?:,\d+)?)/i,
+    /jahresverbrauch[\s\S]{0,420}?365\s*tage[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /365\s*tage\s*(?:umgerechnet|hochgerechnet)[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /auf\s+365\s*tage\s+umgerechnet[\s\S]{0,260}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /365\s*tage\s*(?:umgerechnet|hochgerechnet)[^\d]{0,100}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)/i,
+    /auf\s+365\s*tage\s+umgerechnet[^\d]{0,100}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)/i,
   ]);
   r.annualConsumptionKwh = makeField(annual, annual !== null ? "high" : "unknown");
 
   if (r.annualConsumptionKwh.value === null) {
-    const annualContext = normalized.match(/(?:ihr\s+)?jahresverbrauch[^\d]{0,160}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)\s*kwh/i);
+    const annualContext = normalized.match(/(?:ihr\s+)?jahresverbrauch[^\d]{0,180}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)\s*kwh/i);
     if (annualContext?.[1]) r.annualConsumptionKwh = makeField(deNumber(annualContext[1]), "medium");
   }
 
   r.workPriceCtPerKwh = makeField(findNumber(clean, [
-    /arbeitspreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh/i,
-    /([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh[\s\S]{0,80}?arbeitspreis/i,
+    /arbeitspreis[\s\S]{0,120}?([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh/i,
+    /([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh[\s\S]{0,100}?arbeitspreis/i,
   ]));
   r.basePriceEurPerYear = makeField(findNumber(clean, [
-    /grundpreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€\s*\/?\s*jahr/i,
-    /grundpreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€\s*jahr/i,
+    /grundpreis[\s\S]{0,120}?([\d.]+(?:,\d+)?)\s*€\s*\/?\s*jahr/i,
+    /grundpreis[\s\S]{0,120}?([\d.]+(?:,\d+)?)\s*€\s*jahr/i,
   ]));
-  r.monthlyPaymentEur = makeField(findNumber(clean, [/abschlag[\s\S]{0,70}?([\d.]+(?:,\d+)?)\s*€/i]));
+  r.monthlyPaymentEur = makeField(findNumber(clean, [/abschlag[\s\S]{0,80}?([\d.]+(?:,\d+)?)\s*€/i]));
 
   const period = clean.match(/(\d{2}\.\d{2}\.\d{4}\s*(?:-|bis)\s*\d{2}\.\d{2}\.\d{4})/);
   r.billingPeriod = makeField(period?.[1] || null, period ? "medium" : "unknown");
