@@ -47,8 +47,10 @@ async function ocrImage(image: unknown): Promise<string> {
   await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
   if (!window.Tesseract) throw new Error("OCR_LIBRARY_LOAD_FAILED");
   const worker = await window.Tesseract.createWorker("deu");
-  try { return (await worker.recognize(image)).data.text || ""; }
-  finally { await worker.terminate(); }
+  try {
+    const result = await worker.recognize(image);
+    return result.data.text || "";
+  } finally { await worker.terminate(); }
 }
 
 async function extractText(file: File): Promise<string> {
@@ -60,7 +62,7 @@ async function extractText(file: File): Promise<string> {
   const chunks: string[] = [];
   for (let i = 1; i <= pages; i += 1) {
     const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 1.8 });
+    const viewport = page.getViewport({ scale: 2.2 });
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
     await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
@@ -82,8 +84,10 @@ function makeField(value: string | number | null, confidence: BillAnalysisField[
 
 function findNumber(text: string, patterns: RegExp[]): number | null {
   for (const p of patterns) {
-    const m = text.match(p); if (!m?.[1]) continue;
-    const n = deNumber(m[1]); if (n !== null) return n;
+    const m = text.match(p);
+    if (!m?.[1]) continue;
+    const n = deNumber(m[1]);
+    if (n !== null) return n;
   }
   return null;
 }
@@ -91,23 +95,38 @@ function findNumber(text: string, patterns: RegExp[]): number | null {
 function parseText(text: string): BillAnalysisResult {
   const r = emptyBillAnalysis();
   const clean = text.replace(/\u00a0/g, " ").replace(/\r/g, "");
+  const normalized = clean.replace(/[|]/g, " ").replace(/\s+/g, " ");
+
   const hasStrom = /\bstrom\b/i.test(clean);
   const hasGas = /\bgas\b/i.test(clean);
   r.energyType = makeField(hasStrom && hasGas ? "Strom + Gas" : hasGas ? "Gas" : hasStrom ? "Strom" : null, "high");
 
-  const provider = /\be\.on\b/i.test(clean) ? "E.ON" : /\benbw\b/i.test(clean) ? "EnBW" : /\bvattenfall\b/i.test(clean) ? "Vattenfall" : null;
+  const provider = /\be\.?\s*on\b/i.test(clean) ? "E.ON" : /\benbw\b/i.test(clean) ? "EnBW" : /\bvattenfall\b/i.test(clean) ? "Vattenfall" : null;
   r.provider = makeField(provider, provider ? "high" : "unknown");
 
-  // Annualized consumption wins over partial-period totals.
+  // Prefer an explicit annualized consumption. Never confuse a partial billing-period total with the annual value.
   const annual = findNumber(clean, [
-    /jahresverbrauch[\s\S]{0,140}?([\d.]+(?:,\d+)?)\s*kwh/i,
-    /jahresverbrauch\s+in\s+kwh[\s\S]{0,220}?([\d.]+(?:,\d+)?)/i,
-    /verbrauch[\s\S]{0,80}?365\s*tage[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /jahresverbrauch[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /jahresverbrauch\s+in\s+kwh[\s\S]{0,350}?([\d.]+(?:,\d+)?)/i,
+    /jahresverbrauch[\s\S]{0,350}?365\s*tage[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /365\s*tage\s*(?:umgerechnet|hochgerechnet)[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
+    /auf\s+365\s*tage\s+umgerechnet[\s\S]{0,220}?([\d.]+(?:,\d+)?)\s*kwh/i,
   ]);
   r.annualConsumptionKwh = makeField(annual, annual !== null ? "high" : "unknown");
 
-  r.workPriceCtPerKwh = makeField(findNumber(clean, [/arbeitspreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*ct\s*\/\s*kwh/i]));
-  r.basePriceEurPerYear = makeField(findNumber(clean, [/grundpreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€\s*\/?\s*jahr/i, /grundpreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€\s*jahr/i]));
+  if (r.annualConsumptionKwh.value === null) {
+    const annualContext = normalized.match(/(?:ihr\s+)?jahresverbrauch[^\d]{0,160}(\d{1,3}(?:\.\d{3})+(?:,\d+)?)\s*kwh/i);
+    if (annualContext?.[1]) r.annualConsumptionKwh = makeField(deNumber(annualContext[1]), "medium");
+  }
+
+  r.workPriceCtPerKwh = makeField(findNumber(clean, [
+    /arbeitspreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh/i,
+    /([\d.]+(?:,\d+)?)\s*ct\s*\/?\s*kwh[\s\S]{0,80}?arbeitspreis/i,
+  ]));
+  r.basePriceEurPerYear = makeField(findNumber(clean, [
+    /grundpreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€\s*\/?\s*jahr/i,
+    /grundpreis[\s\S]{0,100}?([\d.]+(?:,\d+)?)\s*€\s*jahr/i,
+  ]));
   r.monthlyPaymentEur = makeField(findNumber(clean, [/abschlag[\s\S]{0,70}?([\d.]+(?:,\d+)?)\s*€/i]));
 
   const period = clean.match(/(\d{2}\.\d{2}\.\d{4}\s*(?:-|bis)\s*\d{2}\.\d{2}\.\d{4})/);
