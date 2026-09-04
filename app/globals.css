@@ -29,6 +29,37 @@ button, input, select, textarea { font: inherit; }
 .desktop-only { display: block; }
 .mobile-only { display: none; }
 
+.cpm-marquee {
+  width: 100%;
+  overflow: hidden;
+  border-top: 1px solid rgba(148,163,184,.14);
+  border-bottom: 1px solid rgba(148,163,184,.14);
+  background: #0C1218;
+  padding: 1rem 0;
+}
+.cpm-marquee-track {
+  display: flex;
+  gap: 3rem;
+  width: max-content;
+  min-width: max-content;
+  animation: cpm-marquee 30s linear infinite;
+  color: #94a3b8;
+  font-size: .875rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  will-change: transform;
+}
+.cpm-marquee-track span { color: #94a3b8; flex: 0 0 auto; }
+.cpm-marquee-track span::first-letter { color: #A3E635; }
+.cpm-marquee:hover .cpm-marquee-track,
+.cpm-marquee:focus-within .cpm-marquee-track { animation-play-state: paused; }
+@keyframes cpm-marquee {
+  from { transform: translate3d(0,0,0); }
+  to { transform: translate3d(-50%,0,0); }
+}
+
 @keyframes heroDrift { from { transform: scale(1.02) translate3d(-0.4%, 0, 0); } to { transform: scale(1.06) translate3d(0.7%, -0.6%, 0); } }
 @keyframes mobileHeroDrift { from { transform: scale(1.02) translate3d(-0.8%, 0, 0); } to { transform: scale(1.08) translate3d(0.8%, -0.8%, 0); } }
 @keyframes sceneGlow { 0%, 100% { opacity: .45; transform: scale(.96); } 50% { opacity: .8; transform: scale(1.04); } }
@@ -37,6 +68,7 @@ button, input, select, textarea { font: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  .cpm-marquee-track { animation: none !important; transform: none !important; flex-wrap: wrap; justify-content: center; width: 100%; min-width: 0; white-space: normal; padding-inline: 1rem; }
 }
 
 @media (min-width: 768px) { .container { width: min(1120px, calc(100% - 64px)); } }
@@ -45,4 +77,6 @@ button, input, select, textarea { font: inherit; }
   .desktop-only { display: none !important; }
   .mobile-only { display: block !important; }
   .container { width: min(100% - 32px, 620px); }
+  .cpm-marquee { padding: .875rem 0; }
+  .cpm-marquee-track { gap: 2rem; font-size: .75rem; letter-spacing: .1em; animation-duration: 24s; }
 }
