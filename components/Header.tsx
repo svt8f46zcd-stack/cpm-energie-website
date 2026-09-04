@@ -15,8 +15,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#06101f]/90 backdrop-blur-xl">
       <div className="container flex h-18 items-center justify-between">
-        <Link href="/" className="text-xl font-black tracking-tight">
-          CPM <span className="text-[#19b7ff]">ENERGIE</span>
+        <Link href="/" aria-label="CPM Energie Startseite" className="block shrink-0">
+          <img src="/logo-cpm-energie.svg" alt="CPM Energie" className="h-11 w-auto sm:h-12" />
         </Link>
         <nav className="hidden items-center gap-7 md:flex">
           {links.map(([label, href]) => <Link key={href} href={href} className="text-sm text-slate-300 transition hover:text-white">{label}</Link>)}
