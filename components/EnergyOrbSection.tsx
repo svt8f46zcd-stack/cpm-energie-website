@@ -11,6 +11,12 @@ const EnergyOrb = dynamic(() => import("./EnergyOrb"), {
 });
 
 export default function EnergyOrbSection() {
+  // The mobile hero has its own lightweight visual treatment. Do not even
+  // mount the Three.js scene on small screens to keep the phone experience fast.
+  if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+    return null;
+  }
+
   return (
     <div className="flex w-full items-center justify-center">
       <Suspense fallback={null}>
