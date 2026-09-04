@@ -1,4 +1,3 @@
-import EnergyOrbSection from "@/components/EnergyOrbSection";
 import HeroAddressCheck from "@/components/HeroAddressCheck";
 import BillUpload from "@/components/BillUpload";
 
