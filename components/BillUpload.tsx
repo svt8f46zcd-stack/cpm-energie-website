@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis";
+import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis-v2";
 
 const labels: Array<[keyof BillAnalysisResult, string]> = [
   ["energyType", "Energieart"], ["provider", "Anbieter"], ["annualConsumptionKwh", "Jahresverbrauch"],
@@ -29,20 +29,15 @@ function applyRecognizedData(result: BillAnalysisResult) {
     const input = Array.from(document.querySelectorAll<HTMLInputElement>("input")).find(i => i.placeholder?.toLowerCase().includes("e.on"));
     if (input) setReactInputValue(input, provider);
   }
-  const address = result.address.value;
-  if (typeof address === "string" && address.trim()) {
-    const match = address.match(/^(.+?)\s+(\d+[a-zA-Z]?)\s*,?\s*(\d{5})\s+(.+)$/);
-    if (match) {
-      const [, street, house, postal] = match;
-      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("input"));
-      const plz = inputs.find(i => i.placeholder === "55278");
-      const streetInput = inputs.find(i => i.placeholder?.includes("Hauptstraße"));
-      const houseInput = inputs.find(i => i.placeholder?.includes("3a"));
-      if (plz) setReactInputValue(plz, postal);
-      if (streetInput) setReactInputValue(streetInput, street.trim());
-      if (houseInput) setReactInputValue(houseInput, house);
-    }
-  }
+}
+
+function displayValue(key: keyof BillAnalysisResult, value: string | number | null) {
+  if (value === null) return "Nicht erkannt";
+  if (key === "workPriceCtPerKwh") return `${String(value).replace(".", ",")} ct/kWh`;
+  if (key === "basePriceEurPerYear") return `${String(value).replace(".", ",")} €/Jahr`;
+  if (key === "monthlyPaymentEur") return `${String(value).replace(".", ",")} €`;
+  if (key === "annualConsumptionKwh") return `${value} kWh`;
+  return String(value);
 }
 
 export default function BillUpload() {
@@ -78,13 +73,13 @@ export default function BillUpload() {
         </button>
         <input ref={inputRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
         {fileName && <p className="mt-2 truncate text-xs text-slate-300">✓ {fileName}</p>}
-        {status === "analyzing" && <p className="mt-2 text-xs text-[#8ce4ff]">Text wird erkannt und anschließend werden nur eindeutig erkennbare Rechnungsdaten übernommen.</p>}
+        {status === "analyzing" && <p className="mt-2 text-xs text-[#8ce4ff]">Rechnung wird in mehreren OCR Varianten gelesen. Preiswerte werden anschließend anhand von Einheit, Menge und Rechnungszeile gegengeprüft.</p>}
         {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
         {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
           <p className="text-sm font-bold text-white">Erkannte Angaben</p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">Bitte die Werte kurz prüfen. Nicht eindeutig erkannte Angaben bleiben leer.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">Nur Werte mit passendem Rechnungszusammenhang werden übernommen. Arbeitspreise werden ausdrücklich in ct/kWh geprüft.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{f.value ?? "Nicht erkannt"}</p><p className="mt-0.5 text-[10px] text-slate-500">Sicherheit: {f.confidence}</p></div>; })}
+            {labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{displayValue(key, f.value)}</p><p className="mt-0.5 text-[10px] text-slate-500">Sicherheit: {f.confidence}</p></div>; })}
           </div>
           <p className="mt-3 text-xs font-semibold text-emerald-300">✓ Erkannte Werte wurden in den Tarifcheck übernommen.</p>
         </div>}
