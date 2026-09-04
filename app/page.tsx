@@ -3,33 +3,18 @@ import { CTASection } from "@/components/CTASection";
 import { DesktopHero } from "@/components/DesktopHero";
 import { MobileHero } from "@/components/MobileHero";
 
+const providers = ["E.ON", "goldgas", "ENTEGA", "eprimo", "Yello", "Vattenfall", "Mainova", "RheinEnergie", "EWE", "LichtBlick"];
+
 export default function Home() {
   return <>
     <div className="desktop-only"><DesktopHero /></div>
     <div className="mobile-only"><MobileHero /></div>
 
-    <div className="cpm-marquee" aria-label="Auswahl von Strom- und Gasanbietern">
+    <div className="cpm-marquee" aria-label="Anbieter aus dem CPM Energie Portfolio">
       <div className="cpm-marquee-track">
-        <span>✦ E.ON</span>
-        <span>✦ goldgas</span>
-        <span>✦ ENTEGA</span>
-        <span>✦ eprimo</span>
-        <span>✦ Yello</span>
-        <span>✦ Vattenfall</span>
-        <span>✦ Mainova</span>
-        <span>✦ RheinEnergie</span>
-        <span>✦ EWE</span>
-        <span>✦ LichtBlick</span>
-        <span>✦ E.ON</span>
-        <span>✦ goldgas</span>
-        <span>✦ ENTEGA</span>
-        <span>✦ eprimo</span>
-        <span>✦ Yello</span>
-        <span>✦ Vattenfall</span>
-        <span>✦ Mainova</span>
-        <span>✦ RheinEnergie</span>
-        <span>✦ EWE</span>
-        <span>✦ LichtBlick</span>
+        {[...providers, ...providers].map((provider, index) => (
+          <span key={`${provider}-${index}`}><i aria-hidden="true">✦</i>{provider}</span>
+        ))}
       </div>
     </div>
 
