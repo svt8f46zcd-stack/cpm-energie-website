@@ -35,7 +35,7 @@ export function MobileHero() {
               </div>
             </div>
             <HeroAddressCheck />
-            <BillUpload />
+            <BillUpload onContinue={() => { window.location.href = "/kontakt"; }} />
           </div>
         </div>
 
