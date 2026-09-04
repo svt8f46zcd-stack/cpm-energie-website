@@ -10,7 +10,7 @@ const labels: Array<[keyof BillAnalysisResult, string]> = [
   ["annualConsumptionKwh", "Jahresverbrauch"],
   ["workPriceCtPerKwh", "Arbeitspreis"],
   ["basePriceEurPerYear", "Grundpreis"],
-  ["monthlyPaymentEur", "Letzter Abschlag"],
+  ["monthlyPaymentEur", "Monatlicher Abschlag"],
   ["billingPeriod", "Abrechnungszeitraum"],
   ["contractEnd", "Vertragsende"],
   ["cancellationPeriod", "Kündigungsfrist"],
@@ -123,7 +123,7 @@ export default function BillUpload() {
             <p className="text-sm font-bold text-white">Rechnung erkannt</p>
             <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">Automatisch</span>
           </div>
-          <p className="mt-1 text-xs leading-5 text-slate-400">Arbeitspreis und Grundpreis werden gezielt aus den gekennzeichneten Preiszeilen gelesen. Bei mehreren Tarifblöcken wird nicht einfach der nächste beliebige Eurobetrag übernommen.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">Die Erkennung bewertet Preis, Verbrauch und Zahlungen anhand ihrer Rechnungsposition. Bei mehreren Preisblöcken werden zeitliche Abgrenzungen berücksichtigt, statt beliebige Zahlen aus der Rechnung zu übernehmen.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {labels.map(([key, label]) => {
               const f = analysis[key];
