@@ -52,7 +52,7 @@ function displayValue(key: keyof BillAnalysisResult, value: string | number | nu
   return String(value);
 }
 
-export default function BillUpload() {
+export default function BillUpload({ onContinue }: { onContinue?: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
@@ -60,8 +60,6 @@ export default function BillUpload() {
   const [analysis, setAnalysis] = useState<BillAnalysisResult | null>(null);
 
   useEffect(() => {
-    // Die Unterlagen bleiben beim Wechsel vom Tarifcheck zum Kontaktformular erhalten.
-    // Die eigentlichen Dateien liegen nur im lokalen IndexedDB Speicher des Browsers.
     let cancelled = false;
     import("@/lib/bill-session").then(({ getBillSession }) => getBillSession()).then(session => {
       if (cancelled || !session.files.length) return;
@@ -173,6 +171,7 @@ export default function BillUpload() {
             {labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{displayValue(key, f.value)}</p><p className="mt-0.5 text-[10px] text-slate-500">Sicherheit: {f.confidence}</p></div>; })}
           </div>
           <p className="mt-3 text-xs font-semibold text-emerald-300">✓ Erkannte Werte wurden in den Tarifcheck übernommen und bleiben für das Kontaktformular erhalten.</p>
+          {onContinue && <button type="button" onClick={onContinue} className="mt-4 w-full rounded-full bg-[#19b7ff] px-5 py-3.5 text-sm font-bold text-[#03101c] shadow-[0_10px_30px_rgba(25,183,255,.16)] transition hover:brightness-110">Weiter zur Adresse und Anfrage →</button>}
         </div>}
       </div>
     </div>
