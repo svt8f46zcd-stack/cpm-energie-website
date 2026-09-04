@@ -10,14 +10,18 @@ export function DesktopHero() {
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(2,9,20,.98)_0%,rgba(2,9,20,.9)_28%,rgba(2,9,20,.48)_55%,rgba(2,9,20,.12)_100%)]" />
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgba(2,9,20,.94)_0%,transparent_34%,rgba(2,9,20,.18)_100%)]" />
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-80 bg-[radial-gradient(circle_at_72%_28%,rgba(25,183,255,.16),transparent_24%),radial-gradient(circle_at_84%_72%,rgba(255,190,80,.12),transparent_26%)]" />
-      <div className="pointer-events-none absolute right-[18%] top-[23%] h-2 w-2 rounded-full bg-white shadow-[0_0_18px_7px_rgba(255,215,120,.45)] motion-safe:animate-[pulse_3s_ease-in-out_infinite]" />
       <div className="container relative grid min-h-[820px] items-center gap-8 py-14 md:grid-cols-[1.02fr_.98fr] md:py-20">
         <div className="relative z-20">
-          <p className="mb-5 inline-flex rounded-full border border-[#19b7ff]/35 bg-[#031527]/75 px-4 py-2 text-sm font-semibold text-[#74dcff] shadow-lg shadow-black/20 backdrop-blur-xl">100% kostenlos & unverbindlich</p>
+          <p className="mb-5 inline-flex rounded-full border border-[#19b7ff]/35 bg-[#031527]/75 px-4 py-2 text-sm font-semibold text-[#74dcff] shadow-lg shadow-black/20 backdrop-blur-xl">Kostenlos & unverbindlich</p>
           <h1 className="max-w-3xl text-5xl font-black leading-[1.01] tracking-[-.045em] text-white md:text-7xl">Dein Energievergleich für eine bessere <span className="gradient-text">Zukunft.</span></h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200/90 md:text-xl">Spare bares Geld und finde schnell, einfach und sicher den passenden Strom- und Gastarif.</p>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200/90 md:text-xl">Wir prüfen deinen aktuellen Strom- und Gastarif und zeigen dir verständlich, ob sich ein Wechsel für dich lohnt.</p>
           <HeroAddressCheck />
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-slate-300"><span>✓ kostenlos</span><span>✓ unverbindlich</span><span>✓ persönlich</span></div>
+          <div className="mt-5 grid max-w-xl grid-cols-3 gap-2 text-xs sm:gap-3 sm:text-sm">
+            <div className="rounded-xl border border-white/10 bg-[#06111dcc] px-3 py-3 text-center backdrop-blur-xl"><strong className="block text-white">100 % kostenlos</strong><span className="text-slate-400">keine Prüfgebühr</span></div>
+            <div className="rounded-xl border border-white/10 bg-[#06111dcc] px-3 py-3 text-center backdrop-blur-xl"><strong className="block text-white">Du entscheidest</strong><span className="text-slate-400">kein Wechselzwang</span></div>
+            <div className="rounded-xl border border-white/10 bg-[#06111dcc] px-3 py-3 text-center backdrop-blur-xl"><strong className="block text-white">Persönlich</strong><span className="text-slate-400">direkter Kontakt</span></div>
+          </div>
+          <p className="mt-4 max-w-xl text-xs leading-5 text-slate-400">Transparente Beratung statt undurchsichtiger Tarifversprechen. Du bekommst eine klare Einschätzung und entscheidest selbst, wie es weitergeht.</p>
         </div>
         <div className="relative flex min-h-[610px] items-center justify-center">
           <div className="absolute inset-0 rounded-full bg-[#19b7ff]/10 blur-3xl motion-safe:animate-[sceneGlow_6s_ease-in-out_infinite]" />
