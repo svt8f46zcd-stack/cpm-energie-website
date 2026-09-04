@@ -1,164 +1,86 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-const PROVIDERS = ["E.ON", "EnBW", "Vattenfall", "RheinEnergie", "Mainova", "Stadtwerke München", "Yello Strom", "LichtBlick", "Naturstrom", "EWE", "Energieversorgung Mittelrhein", "Sonstiger Anbieter"];
-const NOMINATIM_API = "https://nominatim.openstreetmap.org";
-const OPENPLZ_API = "https://openplzapi.org/de";
-type NominatimResult = { place_id: number; display_name: string; address?: { road?: string; city?: string; town?: string; village?: string; municipality?: string; postcode?: string } };
-type OpenPlzLocality = { postalCode?: string; name?: string; municipality?: { name?: string } };
+const OPENPLZ = "https://openplzapi.org/de";
+const NOMINATIM = "https://nominatim.openstreetmap.org";
+const PROVIDERS = ["E.ON", "EnBW", "Vattenfall", "RheinEnergie", "Mainova", "Stadtwerke München", "Yello Strom", "LichtBlick", "Naturstrom", "EWE", "Sonstiger Anbieter"];
+type Energy = "strom" | "gas" | "both";
 
-type EnergyType = "strom" | "gas" | "both";
+type Locality = { name?: string; municipality?: { name?: string } };
+type Geo = { address?: { city?: string; town?: string; village?: string; municipality?: string; road?: string; postcode?: string } };
 
 export function SavingsCalculator() {
   const [step, setStep] = useState(1);
-  const [postalCode, setPostalCode] = useState("");
-  const [city, setCity] = useState("");
-  const [cities, setCities] = useState<string[]>([]);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [street, setStreet] = useState("");
-  const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
-  const [loadingStreets, setLoadingStreets] = useState(false);
-  const [houseNumber, setHouseNumber] = useState("");
-  const [provider, setProvider] = useState("");
-  const [electricity, setElectricity] = useState(0);
+  const [energy, setEnergy] = useState<Energy>("strom");
+  const [customer, setCustomer] = useState<"private" | "business">("private");
+  const [strom, setStrom] = useState(0);
   const [gas, setGas] = useState(0);
-  const [customerType, setCustomerType] = useState<"private" | "business">("private");
-  const [tariffType, setTariffType] = useState<EnergyType>("strom");
-  const [showStreets, setShowStreets] = useState(false);
-  const [showProviders, setShowProviders] = useState(false);
-  const [detecting, setDetecting] = useState(false);
+  const [plz, setPlz] = useState("");
+  const [ort, setOrt] = useState("");
+  const [orte, setOrte] = useState<string[]>([]);
+  const [strasse, setStrasse] = useState("");
+  const [hausnummer, setHausnummer] = useState("");
+  const [anbieter, setAnbieter] = useState("");
+  const [anbieterOpen, setAnbieterOpen] = useState(false);
+  const [strassen, setStrassen] = useState<string[]>([]);
+  const [strassenOpen, setStrassenOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setPostalCode(params.get("plz") || "");
-    setCity(params.get("ort") || "");
-    setStreet(params.get("strasse") || "");
-    setHouseNumber(params.get("hausnummer") || "");
-    setProvider(params.get("anbieter") || "");
-    const incomingTariff = params.get("tarif") as EnergyType | null;
-    if (incomingTariff === "strom" || incomingTariff === "gas" || incomingTariff === "both") setTariffType(incomingTariff);
-    const incomingElectricity = Number(params.get("strom") || 0);
-    const incomingGas = Number(params.get("gas") || 0);
-    if (incomingElectricity > 0) setElectricity(incomingElectricity);
-    if (incomingGas > 0) setGas(incomingGas);
-    if (params.get("plz") || params.get("ort")) setStep(2);
+    const q = new URLSearchParams(window.location.search);
+    setPlz(q.get("plz") || ""); setOrt(q.get("ort") || ""); setStrasse(q.get("strasse") || ""); setHausnummer(q.get("hausnummer") || ""); setAnbieter(q.get("anbieter") || "");
+    const e = q.get("tarif") as Energy | null; if (e === "strom" || e === "gas" || e === "both") setEnergy(e);
+    const s = Number(q.get("strom") || 0), g = Number(q.get("gas") || 0); if (s > 0) setStrom(s); if (g > 0) setGas(g);
+    if (q.get("plz") || q.get("ort")) setStep(2);
   }, []);
 
   useEffect(() => {
-    if (!/^\d{5}$/.test(postalCode)) { setCities([]); return; }
-    let cancelled = false;
-    const controller = new AbortController();
-    setLoadingCities(true);
-    async function loadCities() {
-      try {
-        const response = await fetch(`${OPENPLZ_API}/Localities?postalCode=${encodeURIComponent(postalCode)}&page=1&pageSize=50`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } });
-        if (!response.ok) throw new Error();
-        const results = await response.json() as OpenPlzLocality[];
-        const unique = Array.from(new Set(results.map(r => (r.name || r.municipality?.name || "").trim()).filter(Boolean)));
-        if (!cancelled) { setCities(unique); setCity(current => current && unique.includes(current) ? current : unique.length === 1 ? unique[0] : ""); }
-      } catch {
-        try {
-          const params = new URLSearchParams({ postalcode: postalCode, country: "Germany", format: "jsonv2", addressdetails: "1", limit: "50" });
-          const response = await fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } });
-          if (!response.ok) throw new Error();
-          const results = await response.json() as NominatimResult[];
-          const unique = Array.from(new Set(results.map(r => { const a = r.address || {}; return a.city || a.town || a.village || a.municipality || ""; }).filter(Boolean)));
-          if (!cancelled) { setCities(unique); setCity(current => current && unique.includes(current) ? current : unique.length === 1 ? unique[0] : ""); }
-        } catch { if (!cancelled) setCities([]); }
-      } finally { if (!cancelled) setLoadingCities(false); }
-    }
-    loadCities();
-    return () => { cancelled = true; controller.abort(); };
-  }, [postalCode]);
+    if (!/^\d{5}$/.test(plz)) { setOrte([]); return; }
+    const c = new AbortController(); setLoading(true);
+    fetch(`${OPENPLZ}/Localities?postalCode=${plz}&page=1&pageSize=50`, { signal: c.signal, cache: "no-store" })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((data: Locality[]) => setOrte(Array.from(new Set(data.map(x => (x.name || x.municipality?.name || "").trim()).filter(Boolean)))))
+      .catch(() => setOrte([])).finally(() => setLoading(false));
+    return () => c.abort();
+  }, [plz]);
 
   useEffect(() => {
-    if (!/^\d{5}$/.test(postalCode) || !city || street.trim().length < 2) { setStreetSuggestions([]); setLoadingStreets(false); return; }
-    let cancelled = false;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      setLoadingStreets(true);
-      const params = new URLSearchParams({ street: street.trim(), city, postalcode: postalCode, countrycodes: "de", format: "jsonv2", addressdetails: "1", limit: "12" });
-      fetch(`${NOMINATIM_API}/search?${params}`, { signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" } })
-        .then(async r => { if (!r.ok) throw new Error(); return await r.json() as NominatimResult[]; })
-        .then(results => { if (!cancelled) setStreetSuggestions(Array.from(new Set(results.map(r => r.address?.road || "").filter(Boolean))).slice(0, 8)); })
-        .catch(() => { if (!cancelled) setStreetSuggestions([]); })
-        .finally(() => { if (!cancelled) setLoadingStreets(false); });
-    }, 300);
-    return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [postalCode, city, street]);
+    if (!/^\d{5}$/.test(plz) || !ort || strasse.trim().length < 2) { setStrassen([]); return; }
+    const c = new AbortController(); const t = window.setTimeout(() => {
+      const p = new URLSearchParams({ street: strasse.trim(), city: ort, postalcode: plz, countrycodes: "de", format: "jsonv2", addressdetails: "1", limit: "8" });
+      fetch(`${NOMINATIM}/search?${p}`, { signal: c.signal, cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject()).then((data: Geo[]) => setStrassen(Array.from(new Set(data.map(x => x.address?.road || "").filter(Boolean))))).catch(() => setStrassen([]));
+    }, 250);
+    return () => { c.abort(); window.clearTimeout(t); };
+  }, [plz, ort, strasse]);
 
-  const providerMatches = useMemo(() => {
-    const q = provider.toLowerCase().trim();
-    return (q ? PROVIDERS.filter(x => x.toLowerCase().includes(q)) : PROVIDERS).slice(0, 8);
-  }, [provider]);
+  const providerMatches = useMemo(() => { const q = anbieter.toLowerCase(); return PROVIDERS.filter(x => !q || x.toLowerCase().includes(q)).slice(0, 6); }, [anbieter]);
+  const consumptionReady = energy === "strom" ? strom > 0 : energy === "gas" ? gas > 0 : strom > 0 && gas > 0;
+  const addressReady = /^\d{5}$/.test(plz) && !!ort && !!strasse.trim() && !!hausnummer.trim();
+  const query = new URLSearchParams({ plz, ort, strasse, hausnummer, anbieter, strom: String(strom), gas: String(gas), kundentyp: customer, tarif: energy });
 
-  const consumptionReady = (tariffType === "strom" && electricity > 0) || (tariffType === "gas" && gas > 0) || (tariffType === "both" && electricity > 0 && gas > 0);
-  const addressReady = /^\d{5}$/.test(postalCode) && !!city && !!street.trim() && !!houseNumber.trim();
-  const params = new URLSearchParams({ plz: postalCode, ort: city, strasse: street, hausnummer: houseNumber, anbieter: provider, strom: String(electricity), gas: String(gas), kundentyp: customerType, tarif: tariffType });
-
-  async function detectLocation() {
+  async function useLocation() {
     if (!navigator.geolocation) return;
-    setDetecting(true);
-    navigator.geolocation.getCurrentPosition(async position => {
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(async pos => {
       try {
-        const reverseParams = new URLSearchParams({ lat: String(position.coords.latitude), lon: String(position.coords.longitude), format: "jsonv2", addressdetails: "1" });
-        const r = await fetch(`${NOMINATIM_API}/reverse?${reverseParams}`, { cache: "no-store", headers: { Accept: "application/json" } });
-        if (!r.ok) throw new Error();
-        const a = ((await r.json()) as NominatimResult).address || {};
-        setPostalCode(a.postcode || ""); setCity(a.city || a.town || a.village || a.municipality || ""); setStreet(a.road || "");
-      } finally { setDetecting(false); }
-    }, () => setDetecting(false), { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+        const p = new URLSearchParams({ lat: String(pos.coords.latitude), lon: String(pos.coords.longitude), format: "jsonv2", addressdetails: "1" });
+        const data = await (await fetch(`${NOMINATIM}/reverse?${p}`)).json() as Geo; const a = data.address || {};
+        setPlz(a.postcode || ""); setOrt(a.city || a.town || a.village || a.municipality || ""); setStrasse(a.road || "");
+      } finally { setLoading(false); }
+    }, () => setLoading(false), { timeout: 10000, maximumAge: 300000 });
   }
 
-  function nextFromStepOne() {
-    if (tariffType === "strom" && electricity === 0) setElectricity(3000);
-    if (tariffType === "gas" && gas === 0) setGas(12000);
-    if (tariffType === "both") { if (electricity === 0) setElectricity(3000); if (gas === 0) setGas(12000); }
-    setStep(2);
-  }
+  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <div><label className="text-sm font-semibold text-slate-300">{label}</label>{children}</div>;
 
   return <div className="space-y-5">
-    <div className="rounded-2xl border border-white/10 bg-white/[.025] p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-4">
-        <div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#19b7ff]">Schritt {step} von 3</p><p className="mt-1 font-bold text-white">{step === 1 ? "Was möchtest du prüfen?" : step === 2 ? "Dein Verbrauch" : "Wo soll der Tarif passen?"}</p></div>
-        <div className="flex gap-1.5" aria-hidden="true">{[1,2,3].map(n => <span key={n} className={`h-1.5 w-8 rounded-full ${n <= step ? "bg-[#19b7ff]" : "bg-white/10"}`} />)}</div>
-      </div>
-    </div>
+    <div className="rounded-2xl border border-white/10 bg-white/[.025] p-4"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#19b7ff]">Schritt {step} von 3</p><p className="mt-1 font-bold text-white">{step === 1 ? "Was möchtest du prüfen?" : step === 2 ? "Wie viel verbrauchst du?" : "Wo soll der Tarif gelten?"}</p></div><div className="flex gap-1.5">{[1,2,3].map(n => <span key={n} className={`h-1.5 w-7 rounded-full ${n <= step ? "bg-[#19b7ff]" : "bg-white/10"}`} />)}</div></div></div>
 
-    {step === 1 && <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {(["strom", "gas", "both"] as EnergyType[]).map(type => <button key={type} type="button" onClick={() => setTariffType(type)} className={`rounded-2xl border p-5 text-left transition ${tariffType === type ? "border-[#19b7ff] bg-[#19b7ff]/10" : "border-white/10 bg-white/[.025] hover:border-white/20"}`}><span className="text-2xl">{type === "strom" ? "⚡" : type === "gas" ? "🔥" : "⚡ + 🔥"}</span><span className="mt-3 block font-bold text-white">{type === "strom" ? "Nur Strom" : type === "gas" ? "Nur Gas" : "Strom + Gas"}</span><span className="mt-1 block text-xs text-slate-400">{type === "both" ? "Beides zusammen prüfen" : `Nur ${type === "strom" ? "Strom" : "Gas"}`}</span></button>)}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={() => setCustomerType("private")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "private" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Privathaushalt</button>
-        <button type="button" onClick={() => setCustomerType("business")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${customerType === "business" ? "border-[#19b7ff] bg-[#19b7ff]/10 text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Gewerbe</button>
-      </div>
-      <button type="button" onClick={nextFromStepOne} className="w-full rounded-full bg-[#19b7ff] px-7 py-4 font-bold text-[#03101c]">Weiter →</button>
-      <p className="text-center text-xs text-slate-500">Noch einfacher: Wenn du deine Abrechnung hast, kannst du sie oben hochladen. Dann müssen die Verbrauchsdaten nicht von Hand eingegeben werden.</p>
-    </div>}
+    {step === 1 && <div className="space-y-5"><div className="grid gap-3 sm:grid-cols-3">{(["strom","gas","both"] as Energy[]).map(x => <button key={x} type="button" onClick={() => setEnergy(x)} className={`rounded-2xl border p-5 text-left ${energy === x ? "border-[#19b7ff] bg-[#19b7ff]/10" : "border-white/10 bg-white/[.025]"}`}><span className="text-xl">{x === "strom" ? "⚡" : x === "gas" ? "🔥" : "⚡ + 🔥"}</span><span className="mt-2 block font-bold text-white">{x === "strom" ? "Strom" : x === "gas" ? "Gas" : "Strom + Gas"}</span></button>)}</div><div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setCustomer("private")} className={`rounded-xl border py-3 font-semibold ${customer === "private" ? "border-[#19b7ff] text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Privathaushalt</button><button type="button" onClick={() => setCustomer("business")} className={`rounded-xl border py-3 font-semibold ${customer === "business" ? "border-[#19b7ff] text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>Gewerbe</button></div><button type="button" onClick={() => setStep(2)} className="w-full rounded-full bg-[#19b7ff] px-6 py-4 font-bold text-[#03101c]">Weiter →</button><p className="text-center text-xs text-slate-500">Du hast deine Abrechnung? Dann kannst du sie oben hochladen und musst diese Angaben nicht manuell eingeben.</p></div>}
 
-    {step === 2 && <div className="space-y-5">
-      <p className="text-sm leading-6 text-slate-400">Eine grobe Jahresangabe reicht. Wenn du deinen Verbrauch nicht kennst, findest du ihn auf deiner letzten Abrechnung.</p>
-      <div className="grid gap-4 md:grid-cols-2">
-        {(tariffType === "strom" || tariffType === "both") && <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><label className="text-sm font-bold text-white">Stromverbrauch pro Jahr</label><div className="mt-3 flex items-center gap-2"><input type="number" min="0" max="15000" step="100" value={electricity || ""} onChange={e => setElectricity(Math.max(0, Number(e.target.value)))} placeholder="z. B. 3.000" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none focus:border-[#19b7ff]"/><span className="text-sm text-slate-400">kWh</span></div><div className="mt-3 flex flex-wrap gap-2">{[2000,3000,4000,5000].map(v => <button key={v} type="button" onClick={() => setElectricity(v)} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:border-[#19b7ff]/50">{v.toLocaleString("de-DE")}</button>)}</div></div>}
-        {(tariffType === "gas" || tariffType === "both") && <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><label className="text-sm font-bold text-white">Gasverbrauch pro Jahr</label><div className="mt-3 flex items-center gap-2"><input type="number" min="0" max="40000" step="500" value={gas || ""} onChange={e => setGas(Math.max(0, Number(e.target.value)))} placeholder="z. B. 12.000" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none focus:border-[#19b7ff]"/><span className="text-sm text-slate-400">kWh</span></div><div className="mt-3 flex flex-wrap gap-2">{[8000,12000,18000,24000].map(v => <button key={v} type="button" onClick={() => setGas(v)} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:border-[#19b7ff]/50">{v.toLocaleString("de-DE")}</button>)}</div></div>}
-      </div>
-      <div className="flex gap-3"><button type="button" onClick={() => setStep(1)} className="rounded-full border border-white/10 px-6 py-4 font-semibold text-slate-300">Zurück</button><button type="button" disabled={!consumptionReady} onClick={() => setStep(3)} className={`flex-1 rounded-full px-7 py-4 font-bold ${consumptionReady ? "bg-[#19b7ff] text-[#03101c]" : "cursor-not-allowed bg-white/10 text-slate-500"}`}>Weiter →</button></div>
-    </div>}
+    {step === 2 && <div className="space-y-5"><p className="text-sm leading-6 text-slate-400">Trag nur deinen ungefähren Jahresverbrauch ein. Keine Schätzung wird als echte Ersparnis dargestellt.</p><div className="grid gap-4 md:grid-cols-2">{(energy === "strom" || energy === "both") && <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><label className="text-sm font-bold text-white">Strom pro Jahr</label><div className="mt-3 flex items-center gap-2"><input type="number" min="0" max="15000" step="100" value={strom || ""} onChange={e => setStrom(Math.max(0, Number(e.target.value)))} placeholder="z. B. 3.000" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none focus:border-[#19b7ff]"/><span className="text-sm text-slate-400">kWh</span></div><div className="mt-3 flex gap-2">{[2000,3000,4000].map(v => <button key={v} type="button" onClick={() => setStrom(v)} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300">{v.toLocaleString("de-DE")}</button>)}</div></div>}{(energy === "gas" || energy === "both") && <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><label className="text-sm font-bold text-white">Gas pro Jahr</label><div className="mt-3 flex items-center gap-2"><input type="number" min="0" max="40000" step="500" value={gas || ""} onChange={e => setGas(Math.max(0, Number(e.target.value)))} placeholder="z. B. 12.000" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none focus:border-[#19b7ff]"/><span className="text-sm text-slate-400">kWh</span></div><div className="mt-3 flex gap-2">{[8000,12000,18000].map(v => <button key={v} type="button" onClick={() => setGas(v)} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300">{v.toLocaleString("de-DE")}</button>)}</div></div>}</div><div className="flex gap-3"><button type="button" onClick={() => setStep(1)} className="rounded-full border border-white/10 px-6 py-4 font-semibold text-slate-300">Zurück</button><button type="button" disabled={!consumptionReady} onClick={() => setStep(3)} className={`flex-1 rounded-full px-6 py-4 font-bold ${consumptionReady ? "bg-[#19b7ff] text-[#03101c]" : "bg-white/10 text-slate-500"}`}>Weiter →</button></div></div>}
 
-    {step === 3 && <div className="space-y-5">
-      <p className="text-sm leading-6 text-slate-400">Damit wir passende Tarife für deinen Wohnort prüfen können, brauchen wir noch deine Adresse. Dein aktueller Anbieter ist hilfreich, aber nicht zwingend.</p>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div><label className="text-sm font-semibold text-slate-300">PLZ</label><div className="mt-2 flex gap-2"><input value={postalCode} onChange={e => setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" maxLength={5} placeholder="z. B. 55278" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]"/><button type="button" onClick={detectLocation} disabled={detecting} className="rounded-xl border border-[#19b7ff]/30 px-4 text-sm font-semibold text-[#66d5ff]">{detecting ? "…" : "📍"}</button></div>{loadingCities && <p className="mt-2 text-xs text-slate-500">Ort wird geprüft …</p>}{!loadingCities && !city && cities.length > 0 && <div className="mt-2 overflow-hidden rounded-xl border border-[#19b7ff]/30 bg-[#081725]"><p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#66d5ff]">Ort auswählen</p>{cities.map(item => <button key={item} type="button" onClick={() => { setCity(item); setStreet(""); }} className="block w-full border-t border-white/5 px-4 py-3 text-left text-sm text-slate-200">{item}</button>)}</div>}{city && <p className="mt-2 text-sm text-[#66d5ff]">✓ {city}</p>}</div>
-        <div className="relative"><label className="text-sm font-semibold text-slate-300">Straße</label><input value={street} onChange={e => { setStreet(e.target.value); setShowStreets(true); }} onFocus={() => setShowStreets(true)} placeholder={city ? `Straße in ${city}` : "Erst Ort auswählen"} disabled={!city} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none disabled:opacity-40"/>{showStreets && city && street && (streetSuggestions.length > 0 || loadingStreets) && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725] shadow-2xl">{loadingStreets && <div className="px-4 py-3 text-xs text-slate-400">Straßen werden gesucht …</div>}{!loadingStreets && streetSuggestions.map(item => <button key={item} type="button" onClick={() => { setStreet(item); setStreetSuggestions([]); setShowStreets(false); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-[#19b7ff]/10">{item}</button>)}</div>}</div>
-        <div><label className="text-sm font-semibold text-slate-300">Hausnummer</label><input value={houseNumber} onChange={e => setHouseNumber(e.target.value.slice(0, 8))} placeholder="z. B. 3a" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/></div>
-        <div className="relative"><label className="text-sm font-semibold text-slate-300">Aktueller Anbieter <span className="font-normal text-slate-500">optional</span></label><input value={provider} onChange={e => { setProvider(e.target.value); setShowProviders(true); }} onFocus={() => setShowProviders(true)} placeholder="z. B. E.ON" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/>{showProviders && providerMatches.length > 0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725] shadow-2xl">{providerMatches.map(item => <button key={item} type="button" onClick={() => { setProvider(item); setShowProviders(false); }} className="block w-full px-4 py-3 text-left text-sm text-slate-200 hover:bg-white/10">{item}</button>)}</div>}</div>
-      </div>
-      <div className="rounded-2xl border border-[#19b7ff]/20 bg-[#19b7ff]/5 p-4"><p className="text-sm font-semibold text-white">Was passiert danach?</p><p className="mt-1 text-sm leading-6 text-slate-400">Wir prüfen deine Angaben und zeigen dir, welche Tarife für deine Situation infrage kommen. Es gibt keine automatische Vertragsumstellung.</p></div>
-      <div className="flex gap-3"><button type="button" onClick={() => setStep(2)} className="rounded-full border border-white/10 px-6 py-4 font-semibold text-slate-300">Zurück</button><Link href={`/kontakt?${params.toString()}`} className={`flex-1 rounded-full px-7 py-4 text-center font-bold ${addressReady ? "bg-[#19b7ff] text-[#03101c]" : "bg-white/10 text-slate-500"}`}>Tarif kostenlos prüfen</Link></div>
-      <p className="text-center text-xs text-slate-500">Kostenlos und unverbindlich. Du entscheidest selbst, ob du wechseln möchtest.</p>
-    </div>}
+    {step === 3 && <div className="space-y-5"><p className="text-sm leading-6 text-slate-400">Jetzt brauchen wir nur noch deine Adresse. So können wir prüfen, welche Tarife an deinem Standort verfügbar sind.</p><div className="grid gap-4 md:grid-cols-2"><Field label="PLZ"><div className="mt-2 flex gap-2"><input value={plz} onChange={e => setPlz(e.target.value.replace(/\D/g, "").slice(0,5))} placeholder="55278" inputMode="numeric" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]"/><button type="button" onClick={useLocation} className="rounded-xl border border-[#19b7ff]/30 px-4 text-[#66d5ff]">{loading ? "…" : "📍"}</button></div>{orte.length > 1 && !ort && <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#081725]">{orte.map(x => <button key={x} type="button" onClick={() => setOrt(x)} className="block w-full border-b border-white/5 px-4 py-3 text-left text-sm text-white">{x}</button>)}</div>}{ort && <p className="mt-2 text-xs text-[#66d5ff]">✓ {ort}</p>}</Field><Field label="Straße"><div className="relative mt-2"><input value={strasse} disabled={!ort} onChange={e => { setStrasse(e.target.value); setStrassenOpen(true); }} onFocus={() => setStrassenOpen(true)} placeholder={ort ? "z. B. Hauptstraße" : "Erst PLZ und Ort"} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none disabled:opacity-40 focus:border-[#19b7ff]"/>{strassenOpen && strassen.length > 0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725]">{strassen.map(x => <button key={x} type="button" onClick={() => { setStrasse(x); setStrassenOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-white">{x}</button>)}</div>}</div></Field><Field label="Hausnummer"><input value={hausnummer} onChange={e => setHausnummer(e.target.value.slice(0,8))} placeholder="z. B. 3a" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/></Field><Field label="Aktueller Anbieter (optional)"><div className="relative mt-2"><input value={anbieter} onChange={e => { setAnbieter(e.target.value); setAnbieterOpen(true); }} onFocus={() => setAnbieterOpen(true)} placeholder="z. B. E.ON" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/>{anbieterOpen && providerMatches.length > 0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725]">{providerMatches.map(x => <button key={x} type="button" onClick={() => { setAnbieter(x); setAnbieterOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-white">{x}</button>)}</div>}</div></Field></div><div className="rounded-2xl border border-[#19b7ff]/20 bg-[#19b7ff]/5 p-4"><p className="font-semibold text-white">Was du bekommst</p><p className="mt-1 text-sm leading-6 text-slate-400">Eine nachvollziehbare Prüfung deiner Angaben. Wir versprechen keine bestimmte Ersparnis und wechseln deinen Vertrag nicht automatisch.</p></div><div className="flex gap-3"><button type="button" onClick={() => setStep(2)} className="rounded-full border border-white/10 px-6 py-4 font-semibold text-slate-300">Zurück</button>{addressReady ? <Link href={`/kontakt?${query.toString()}`} className="flex-1 rounded-full bg-[#19b7ff] px-6 py-4 text-center font-bold text-[#03101c]">Tarif kostenlos prüfen</Link> : <button type="button" disabled className="flex-1 rounded-full bg-white/10 px-6 py-4 font-bold text-slate-500">Adresse vervollständigen</button>}</div><p className="text-center text-xs text-slate-500">Kostenlos und unverbindlich. Du entscheidest selbst.</p></div>}
   </div>;
 }
