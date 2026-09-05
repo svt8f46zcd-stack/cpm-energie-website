@@ -11,7 +11,7 @@ const links = [
 ];
 
 const ASSET_BASE = "/cpm-energie-website";
-const LOGO_SRC = `${ASSET_BASE}/logo-cpm-header.svg?v=20260905-7`;
+const LOGO_SRC = `${ASSET_BASE}/logo-cpm-energie.svg?v=20260905-8`;
 
 export function Header() {
   const [open, setOpen] = useState(false);
