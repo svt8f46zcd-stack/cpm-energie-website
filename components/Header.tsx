@@ -11,16 +11,23 @@ const links = [
 ];
 
 const ASSET_BASE = "/cpm-energie-website";
-const LOGO_SRC = `${ASSET_BASE}/logo-cpm-energie.svg?v=20260905-5`;
+const LOGO_SRC = `${ASSET_BASE}/logo-cpm-header.svg?v=20260905-6`;
 
 export function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full max-w-[100vw] overflow-x-clip border-b border-white/10 bg-[#06101f]/95 backdrop-blur-xl">
-      <div className="container flex h-[104px] min-w-0 items-center justify-between gap-4 sm:h-[104px]">
-        <Link href="/" aria-label="CPM Energie Startseite" className="flex h-[76px] w-[190px] shrink-0 items-center sm:h-[82px] sm:w-[220px]">
-          <img src={LOGO_SRC} alt="CPM Energie – Mehr Möglichkeiten für Morgen" className="block h-full w-full object-contain object-left" />
+    <header className="sticky top-0 z-50 w-full max-w-[100vw] overflow-x-clip border-b border-white/10 bg-[#06101f]/98 backdrop-blur-xl">
+      <div className="container flex h-[128px] min-w-0 items-center justify-between gap-4 sm:h-[142px]">
+        <Link href="/" aria-label="CPM Energie Startseite" className="block h-[112px] w-[224px] shrink-0 sm:h-[124px] sm:w-[248px]">
+          <img
+            src={LOGO_SRC}
+            alt="CPM Energie – Mehr Möglichkeiten für Morgen"
+            className="block h-full w-full object-contain"
+            width="1536"
+            height="768"
+            draggable="false"
+          />
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex">
