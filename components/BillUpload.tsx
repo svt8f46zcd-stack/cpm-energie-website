@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis-v3";
+import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis-enhanced";
 import { analyzeBillNames } from "@/lib/bill-name-analysis";
 import { saveBillSession } from "@/lib/bill-session";
 
@@ -18,9 +18,15 @@ const labels: Array<[keyof BillAnalysisResult, string]> = [
   ["cancellationPeriod", "Kündigungsfrist"], ["address", "Verbrauchsstelle"],
 ];
 
+const CONFIDENCE_SCORE: Record<BillAnalysisResult[keyof BillAnalysisResult]["confidence"], number> = {
+  high: 3, medium: 2, low: 1, unknown: 0,
+};
+
 function setReactInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-  setter?.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true }));
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function applyRecognizedData(result: BillAnalysisResult) {
@@ -28,9 +34,12 @@ function applyRecognizedData(result: BillAnalysisResult) {
   if (typeof consumption === "number" || typeof consumption === "string") {
     const type = String(result.energyType.value || "").toLowerCase();
     const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'));
-    const target = type.includes("gas") ? inputs.find(input => input.placeholder?.includes("12.000")) : inputs.find(input => input.placeholder?.includes("3.000"));
+    const target = type.includes("gas")
+      ? inputs.find(input => input.placeholder?.includes("12.000"))
+      : inputs.find(input => input.placeholder?.includes("3.000"));
     if (target) setReactInputValue(target, String(consumption));
   }
+
   const provider = result.provider.value;
   if (typeof provider === "string" && provider.trim()) {
     const input = Array.from(document.querySelectorAll<HTMLInputElement>("input")).find(input => input.placeholder?.toLowerCase().includes("e.on"));
@@ -45,6 +54,86 @@ function displayValue(key: keyof BillAnalysisResult, value: string | number | nu
   if (key === "monthlyPaymentEur") return `${Number(value).toFixed(2).replace(".", ",")} €`;
   if (key === "annualConsumptionKwh") return `${Number(value).toLocaleString("de-DE")} kWh`;
   return String(value);
+}
+
+function normalizeValue(value: string | number | null) {
+  if (value === null || value === "") return "";
+  if (typeof value === "number") return String(Math.round(value * 100) / 100);
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function valuesAgree(a: string | number | null, b: string | number | null, key: keyof BillAnalysisResult) {
+  if (a === null || b === null || a === "" || b === "") return false;
+  if (typeof a === "number" && typeof b === "number") {
+    const tolerance = key === "annualConsumptionKwh" ? Math.max(50, Math.max(a, b) * 0.015) : Math.max(0.05, Math.max(a, b) * 0.01);
+    return Math.abs(a - b) <= tolerance;
+  }
+  return normalizeValue(a) === normalizeValue(b);
+}
+
+function mergeAnalyses(results: BillAnalysisResult[]): BillAnalysisResult {
+  const first = results[0];
+  const merged = structuredClone(first);
+
+  (Object.keys(merged) as Array<keyof BillAnalysisResult>).forEach(key => {
+    const candidates = results
+      .map(result => result[key])
+      .filter(field => field.value !== null && field.value !== "")
+      .sort((a, b) => CONFIDENCE_SCORE[b.confidence] - CONFIDENCE_SCORE[a.confidence]);
+
+    if (!candidates.length) return;
+
+    const top = candidates[0];
+    const topScore = CONFIDENCE_SCORE[top.confidence];
+    const sameConfidence = candidates.filter(candidate => CONFIDENCE_SCORE[candidate.confidence] === topScore);
+    const repeated = sameConfidence.find(candidate => sameConfidence.filter(other => valuesAgree(candidate.value, other.value, key)).length >= 2);
+
+    if (repeated) {
+      merged[key] = repeated;
+      return;
+    }
+
+    const conflictingHigh = top.confidence === "high" && sameConfidence.some(candidate => !valuesAgree(top.value, candidate.value, key));
+    if (conflictingHigh && sameConfidence.length > 1) {
+      merged[key] = { ...top, confidence: "medium" };
+      return;
+    }
+
+    merged[key] = top;
+  });
+
+  const consumption = merged.annualConsumptionKwh.value;
+  if (typeof consumption === "number" && (consumption < 300 || consumption > 100000)) {
+    merged.annualConsumptionKwh = { value: null, confidence: "unknown", source: "not_detected" };
+  }
+
+  const workPrice = merged.workPriceCtPerKwh.value;
+  if (typeof workPrice === "number" && (workPrice < 2 || workPrice > 100)) {
+    merged.workPriceCtPerKwh = { value: null, confidence: "unknown", source: "not_detected" };
+  }
+
+  const basePrice = merged.basePriceEurPerYear.value;
+  if (typeof basePrice === "number" && (basePrice < 0 || basePrice > 5000)) {
+    merged.basePriceEurPerYear = { value: null, confidence: "unknown", source: "not_detected" };
+  }
+
+  return merged;
+}
+
+async function analyzeWithConcurrency(files: File[], concurrency = 3) {
+  const results: BillAnalysisResult[] = new Array(files.length);
+  let cursor = 0;
+
+  const worker = async () => {
+    while (true) {
+      const index = cursor++;
+      if (index >= files.length) return;
+      results[index] = await analyzeBill(files[index]);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, () => worker()));
+  return results;
 }
 
 export default function BillUpload({ onContinue }: { onContinue?: () => void }) {
@@ -70,11 +159,16 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
     const valid = incoming.filter(file => ["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.type));
     const oversized = valid.filter(file => file.size > 10 * 1024 * 1024);
     if (incoming.length !== valid.length) setError("Bitte nur PDF, JPG, PNG oder WEBP auswählen.");
-    else if (oversized.length) setError("Jede Datei darf maximal 10 MB groß sein."); else setError("");
+    else if (oversized.length) setError("Jede Datei darf maximal 10 MB groß sein.");
+    else setError("");
+
     const next = [...files, ...valid.filter(file => file.size <= 10 * 1024 * 1024)];
     const unique = next.filter((file, index, all) => index === all.findIndex(other => other.name === file.name && other.size === file.size && other.lastModified === file.lastModified));
     if (unique.length > 12) { setError("Bitte maximal 12 Seiten bzw. Dateien gleichzeitig auswählen."); return; }
-    setFiles(unique); setStatus(unique.length ? "ready" : "idle"); setAnalysis(null); void saveBillSession(unique, null).catch(() => undefined);
+    setFiles(unique);
+    setStatus(unique.length ? "ready" : "idle");
+    setAnalysis(null);
+    void saveBillSession(unique, null).catch(() => undefined);
   };
 
   const removeFile = (index: number) => {
@@ -93,30 +187,27 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
     if (!files.length) return;
     setError(""); setStatus("analyzing");
     try {
-      const results: BillAnalysisResult[] = [];
-      for (const file of files) results.push(await analyzeBill(file));
-      const merged = results.reduce<BillAnalysisResult>((acc, current) => {
-        (Object.keys(acc) as Array<keyof BillAnalysisResult>).forEach(key => {
-          const candidate = current[key];
-          if (candidate.value === null || candidate.value === "") return;
-          if (acc[key].value === null || acc[key].value === "") { acc[key] = candidate; return; }
-          if (candidate.confidence === "high" && acc[key].confidence !== "high") acc[key] = candidate;
-        });
-        return acc;
-      }, structuredClone(results[0]));
-      const consumptionCandidates = results.map(result => result.annualConsumptionKwh).filter(field => typeof field.value === "number" && field.value >= 300 && field.value <= 100000 && field.confidence === "high").map(field => field.value as number);
-      if (consumptionCandidates.length > 1) merged.annualConsumptionKwh = { value: Math.max(...consumptionCandidates), confidence: "high", source: "document" };
+      const results = await analyzeWithConcurrency(files, 3);
+      const merged = mergeAnalyses(results);
       const names = await analyzeBillNames(files);
       const withName: BillAnalysisWithName = {
         ...merged,
         firstName: { value: names.firstName, confidence: names.confidence, source: names.firstName ? "document" : "not_detected" },
         lastName: { value: names.lastName, confidence: names.confidence, source: names.lastName ? "document" : "not_detected" },
       };
+
       const usable = [withName.energyType.value, withName.provider.value, withName.annualConsumptionKwh.value, withName.workPriceCtPerKwh.value, withName.basePriceEurPerYear.value];
       if (!usable.some(value => value !== null && value !== "")) throw new Error("NO_USABLE_DATA");
-      setAnalysis(withName); setStatus("done"); applyRecognizedData(merged); await saveBillSession(files, withName);
+
+      setAnalysis(withName);
+      setStatus("done");
+      applyRecognizedData(merged);
+      await saveBillSession(files, withName);
     } catch (err) {
-      setStatus("ready"); setError(err instanceof Error && err.message === "OCR_LIBRARY_LOAD_FAILED" ? "Die Rechnungserkennung konnte nicht geladen werden. Bitte erneut versuchen." : "Die Rechnung konnte nicht eindeutig ausgewertet werden. Bitte prüfe die Dateien oder gib den Verbrauch manuell ein.");
+      setStatus("ready");
+      setError(err instanceof Error && err.message === "OCR_LIBRARY_LOAD_FAILED"
+        ? "Die Rechnungserkennung konnte nicht geladen werden. Bitte erneut versuchen."
+        : "Die Rechnung konnte nicht eindeutig ausgewertet werden. Bitte prüfe die Dateien oder gib den Verbrauch manuell ein.");
     }
   };
 
@@ -140,10 +231,10 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
           <button type="button" aria-label={`${file.name} löschen`} title="Datei löschen" disabled={status === "analyzing"} onClick={() => removeFile(index)} className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-400/20 bg-red-400/5 px-2.5 text-[11px] font-bold text-red-300 transition hover:bg-red-400/10 disabled:opacity-50"><span aria-hidden="true">✕</span><span>Löschen</span></button>
         </div>)}
       </div>}
-      {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">{files.length > 1 ? `Ich prüfe ${files.length} Seiten gemeinsam und führe die erkannten Rechnungsdaten zusammen.` : "Ich prüfe deine Rechnung auf Anbieter, Verbrauch und Preise."}</p>}
+      {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">{files.length > 1 ? `Ich prüfe ${files.length} Seiten parallel, gleiche die Ergebnisse ab und übernehme nur belastbare Werte.` : "Ich prüfe deine Rechnung auf Anbieter, Energieart, Verbrauch und Preise."}</p>}
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold text-white">Rechnung erkannt</p><span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">{files.length > 1 ? `${files.length} Seiten` : "Automatisch"}</span></div>
-        <p className="mt-1 text-xs leading-5 text-slate-400">Die erkannten Angaben werden zusammengeführt, wenn du mehrere Seiten hochlädst. So wird eine mehrseitige Rechnung nicht als mehrere Rechnungen behandelt.</p>
+        <p className="mt-1 text-xs leading-5 text-slate-400">Die Erkennung kombiniert mehrere Seiten derselben Rechnung. Bei widersprüchlichen Hochsicherheitswerten wird nicht einfach der größte Wert übernommen.</p>
         <div className="mt-3 rounded-lg border border-[#19b7ff]/15 bg-[#19b7ff]/5 p-3"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Rechnungsempfänger</p><p className="mt-1 text-base font-bold text-white">{recipientComplete ? [analysis.firstName?.value, analysis.lastName?.value].filter(Boolean).join(" ") : "Nicht sicher erkannt"}</p><p className="mt-0.5 text-[10px] text-slate-500">{recipientComplete ? `Automatisch aus der Rechnung erkannt · Sicherheit: ${recipientConfidence}` : "Kein belastbarer Vorname und Nachname erkannt. Es wurde kein unsicherer OCR Treffer übernommen."}</p></div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">{labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{displayValue(key, f.value)}</p><p className="mt-0.5 text-[10px] text-slate-500">Sicherheit: {f.confidence}</p></div>; })}</div>
         <p className="mt-3 text-xs font-semibold text-emerald-300">✓ Erkannte Werte wurden in den Tarifcheck übernommen und bleiben für das Kontaktformular erhalten.</p>
