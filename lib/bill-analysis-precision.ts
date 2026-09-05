@@ -7,11 +7,7 @@ const make = (value: string | number | null, confidence: BillAnalysisField["conf
   value === null || value === "" ? empty() : { value, confidence, source: "document" };
 
 function normalize(s: string) {
-  return s
-    .replace(/\u00a0/g, " ")
-    .replace(/[‐‑‒–—]/g, "-")
-    .replace(/\s+/g, " ")
-    .trim();
+  return s.replace(/\u00a0/g, " ").replace(/[‐‑‒–—]/g, "-").replace(/\s+/g, " ").trim();
 }
 
 function number(raw: string) {
@@ -27,8 +23,7 @@ function number(raw: string) {
 }
 
 function setHigh(result: BillAnalysisResult, key: keyof BillAnalysisResult, value: string | number | null) {
-  if (value === null || value === "") return;
-  result[key] = make(value, "high");
+  if (value !== null && value !== "") result[key] = make(value, "high");
 }
 
 function extractProvider(text: string) {
@@ -56,12 +51,9 @@ function extractTariff(text: string) {
 function extractOverviewPrice(text: string, label: "Arbeitspreis" | "Grundpreis") {
   const compact = normalize(text);
   const overview = compact.match(/Ihr aktueller Preis[^.]{0,900}/i)?.[0] ?? compact;
-  const area = overview.includes("Grundpreis") ? overview : compact;
-  const labelPattern = label === "Arbeitspreis" ? "Arbeitspreis" : "Grundpreis";
-  const labelIndex = area.search(new RegExp(labelPattern, "i"));
+  const labelIndex = overview.search(new RegExp(label, "i"));
   if (labelIndex < 0) return null;
-  const window = area.slice(labelIndex, labelIndex + 260);
-
+  const window = overview.slice(labelIndex, labelIndex + 260);
   if (label === "Arbeitspreis") {
     const ct = window.match(/(\d{1,3}(?:[.,]\d{1,3})?)\s*(?:ct|c|cent)\s*\/\s*kWh/i);
     if (ct) return number(ct[1]);
@@ -101,9 +93,8 @@ function extractBillingPeriod(text: string) {
 }
 
 async function getPdfText(file: File) {
-  const url = "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/build/pdf.mjs";
   const dynamicImport = new Function("u", "return import(u)") as (u: string) => Promise<any>;
-  const pdf = await dynamicImport(url);
+  const pdf = await dynamicImport("https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/build/pdf.mjs");
   const doc = await pdf.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
   const pages: string[] = [];
   for (let i = 1; i <= Math.min(12, doc.numPages); i++) {
@@ -115,35 +106,28 @@ async function getPdfText(file: File) {
 }
 
 async function readText(file: File) {
-  if (file.type === "application/pdf") {
-    try { return await getPdfText(file); } catch { return ""; }
-  }
-  return "";
+  if (file.type !== "application/pdf") return "";
+  try { return await getPdfText(file); } catch { return ""; }
 }
 
 export async function analyzeBillPrecise(file: File): Promise<BillAnalysisResult> {
   const result = await analyzeBill(file);
-  let text = "";
-  try { text = await readText(file); } catch { text = ""; }
+  const text = await readText(file);
   if (!text.trim()) return result;
 
   const provider = extractProvider(text);
   if (provider) setHigh(result, "provider", provider);
-
   const tariff = extractTariff(text);
   if (tariff) setHigh(result, "tariffName", tariff);
-
   const consumption = extractConsumption(text);
   if (consumption !== null) setHigh(result, "annualConsumptionKwh", consumption);
-
   const work = extractOverviewPrice(text, "Arbeitspreis");
   if (work !== null && work >= 5 && work <= 100) setHigh(result, "workPriceCtPerKwh", work);
-
   const base = extractOverviewPrice(text, "Grundpreis");
   if (base !== null && base >= 20 && base <= 5000) setHigh(result, "basePriceEurPerYear", base);
-
   const period = extractBillingPeriod(text);
   if (period) setHigh(result, "billingPeriod", period);
-
   return result;
 }
+
+export const analyzeBill = analyzeBillPrecise;
