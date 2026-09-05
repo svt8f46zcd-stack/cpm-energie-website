@@ -1,0 +1,65 @@
+name: Repair bill OCR runtime
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair OCR runtime and PDF worker
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          files = [Path('lib/bill-analysis-v3.ts'), Path('lib/bill-analysis-enhanced.ts')]
+          for path in files:
+              s = path.read_text()
+              s = s.replace(
+                  'const OCR = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";',
+                  'const OCR = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";'
+              )
+              s = s.replace(
+                  'const PDF = "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/build/pdf.mjs";',
+                  'const PDF = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.min.mjs";\nconst PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.worker.min.mjs";'
+              )
+              old = 'return window.Tesseract.createWorker("deu");'
+              new = '''return window.Tesseract.createWorker("deu", 1, {\n    workerPath: "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/worker.min.js",\n    langPath: "https://tessdata.projectnaptha.com/4.0.0",\n    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0",\n    workerBlobURL: false,\n  });'''
+              if old not in s:
+                  raise SystemExit(f'worker pattern not found in {path}')
+              s = s.replace(old, new)
+              old_pdf = '''async function pdfjs() {\n  if (pdfPromise) return pdfPromise;\n  const dynamicImport = new Function("u", "return import(u)") as (u: string) => Promise<any>;\n  pdfPromise = dynamicImport(PDF);\n  return pdfPromise;\n}'''
+              new_pdf = '''async function pdfjs() {\n  if (pdfPromise) return pdfPromise;\n  const dynamicImport = new Function("u", "return import(u)") as (u: string) => Promise<any>;\n  pdfPromise = dynamicImport(PDF).then((mod: any) => {\n    if (mod?.GlobalWorkerOptions) mod.GlobalWorkerOptions.workerSrc = PDF_WORKER;\n    return mod;\n  });\n  return pdfPromise;\n}'''
+              if old_pdf not in s:
+                  raise SystemExit(f'pdf pattern not found in {path}')
+              s = s.replace(old_pdf, new_pdf)
+              path.write_text(s)
+
+          path = Path('lib/bill-analysis-v3.ts')
+          s = path.read_text()
+          marker = 'function provider(text: string) {\n  const providers: Array<[RegExp, string]> = ['
+          replacement = 'function provider(text: string) {\n  const providers: Array<[RegExp, string]> = [\n    [/e\\.?\\s*n\\.?\\s*t\\.?\\s*e\\.?\\s*g\\.?\\s*a/i, "ENTEGA"],'
+          if marker in s and '"ENTEGA"' not in s[s.index(marker):s.index(marker)+500]:
+              s = s.replace(marker, replacement, 1)
+          path.write_text(s)
+          PY
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/bill-analysis-v3.ts lib/bill-analysis-enhanced.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix bill OCR and PDF recognition"
+          git push
+      - name: Remove repair workflow
+        if: success()
+        run: |
+          git rm .github/workflows/repair-bill-ocr.yml
+          git commit -m "Remove temporary OCR repair workflow"
+          git push
