@@ -4,8 +4,9 @@ type Confidence = BillAnalysisField["confidence"];
 
 type Candidate = { value: string | number; score: number; index: number };
 
-const OCR = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
-const PDF = "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/build/pdf.mjs";
+const OCR = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
+const PDF = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.min.mjs";
+const PDF_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.worker.min.mjs";
 let ocrPromise: Promise<void> | null = null;
 let pdfPromise: Promise<any> | null = null;
 
@@ -40,7 +41,10 @@ function loadScript() {
 async function pdfjs() {
   if (pdfPromise) return pdfPromise;
   const dynamicImport = new Function("u", "return import(u)") as (u: string) => Promise<any>;
-  pdfPromise = dynamicImport(PDF);
+  pdfPromise = dynamicImport(PDF).then((mod: any) => {
+    if (mod?.GlobalWorkerOptions) mod.GlobalWorkerOptions.workerSrc = PDF_WORKER;
+    return mod;
+  });
   return pdfPromise;
 }
 
@@ -78,7 +82,12 @@ function preprocess(source: HTMLCanvasElement, mode: "color" | "gray" | "thresho
 async function worker() {
   await loadScript();
   if (!window.Tesseract) throw new Error("OCR_LIBRARY_LOAD_FAILED");
-  return window.Tesseract.createWorker("deu");
+  return window.Tesseract.createWorker("deu", 1, {
+    workerPath: "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/worker.min.js",
+    langPath: "https://tessdata.projectnaptha.com/4.0.0",
+    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0",
+    workerBlobURL: false,
+  });
 }
 
 async function ocrCanvas(canvas: HTMLCanvasElement) {
