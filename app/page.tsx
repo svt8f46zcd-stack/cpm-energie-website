@@ -3,7 +3,6 @@ import { DesktopHero } from "@/components/DesktopHero";
 import { MobileHero } from "@/components/MobileHero";
 
 const providers = ["E.ON", "goldgas", "ENTEGA", "eprimo", "Yello", "Vattenfall", "Mainova", "RheinEnergie", "EWE", "LichtBlick"];
-const ASSET_BASE = "/cpm-energie-website";
 
 const benefits = [
   { number: "01", title: "Rechnung statt Schätzen", text: "Lade deine Strom oder Gasrechnung hoch. Die wichtigsten Angaben werden direkt aus dem Dokument ausgelesen." },
@@ -102,8 +101,8 @@ export default function Home() {
 
         <section className="border-y border-white/10 bg-[#050d18]" aria-labelledby="personal-heading">
           <div className="container grid gap-10 py-16 md:grid-cols-[.65fr_1.35fr] md:items-center md:py-20">
-            <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1b30] shadow-2xl shadow-black/30">
-              <div className="aspect-[4/5] overflow-hidden"><img src={`${ASSET_BASE}/cristiano.svg`} alt="Cristiano Moreira, persönliche Energieberatung bei CPM Energie" className="h-full w-full object-cover" /></div>
+            <div className="mx-auto flex aspect-[4/5] w-full max-w-sm items-center justify-center overflow-hidden rounded-[2rem] border border-[#19b7ff]/20 bg-[radial-gradient(circle_at_50%_35%,rgba(25,183,255,.22),transparent_42%),#0b1b30] shadow-2xl shadow-black/30">
+              <div className="flex h-32 w-32 items-center justify-center rounded-full border border-[#19b7ff]/40 bg-[#19b7ff]/10 text-4xl font-black tracking-tight text-white shadow-[0_0_60px_rgba(25,183,255,.16)]">CPM</div>
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-[.22em] text-[#66d5ff]">Persönlich statt anonym</p>
