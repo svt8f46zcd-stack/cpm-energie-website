@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 768" role="img" aria-labelledby="title">
+<title id="title">CPM Energie</title>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071d3b"/><stop offset=".55" stop-color="#06152b"/><stop offset="1" stop-color="#020914"/></linearGradient>
+<radialGradient id="g"><stop stop-color="#168fff" stop-opacity=".24"/><stop offset="1" stop-color="#168fff" stop-opacity="0"/></radialGradient>
+<linearGradient id="b"><stop stop-color="#079dff"/><stop offset="1" stop-color="#21b9ff"/></linearGradient>
+<filter id="glow"><feGaussianBlur stdDeviation="8" result="x"/><feMerge><feMergeNode in="x"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1536" height="768" fill="url(#bg)"/>
+<ellipse cx="470" cy="330" rx="620" ry="390" fill="url(#g)"/>
+<g transform="translate(92 185) scale(.98)">
+<g fill="none" stroke="#fff" stroke-width="38" stroke-linecap="square" stroke-linejoin="round" filter="url(#glow)">
+<path d="M330 88H150C92 88 62 124 62 178v34c0 54 30 90 88 90h180"/>
+<path d="M390 302V88h205c52 0 82 30 82 76v5c0 47-30 76-82 76H390"/>
+<path d="M690 302V88l150 144L1010 88v214"/>
+</g>
+<text x="62" y="382" fill="url(#b)" font-family="Arial, Helvetica, sans-serif" font-size="86" font-weight="800" letter-spacing="25">ENERGIE</text>
+<text x="62" y="432" fill="#fff" opacity=".92" font-family="Arial, Helvetica, sans-serif" font-size="30" letter-spacing="12">MEHR MÖGLICHKEITEN FÜR MORGEN</text>
+</g>
+</svg>
