@@ -11,26 +11,38 @@ const links = [
 ];
 
 const ASSET_BASE = "/cpm-energie-website";
-const LOGO_SRC = `${ASSET_BASE}/logo-cpm-energie.svg?v=20260905-3`;
+const LOGO_SRC = `${ASSET_BASE}/logo-cpm-energie.svg?v=20260905-4`;
 
 export function Header() {
   const [open, setOpen] = useState(false);
+
   return (
-    <header className="sticky top-0 z-50 w-full max-w-[100vw] overflow-x-clip border-b border-white/10 bg-[#06101f]/90 backdrop-blur-xl">
-      <div className="container flex h-[72px] min-w-0 items-center justify-between gap-4 sm:h-20">
-        <Link href="/" aria-label="CPM Energie Startseite" className="block min-w-0 max-w-[220px] shrink-0">
-          <img src={LOGO_SRC} alt="CPM Energie" className="block h-auto w-full max-w-[220px] object-contain sm:max-w-[250px]" />
+    <header className="sticky top-0 z-50 w-full max-w-[100vw] overflow-x-clip border-b border-white/10 bg-[#06101f]/95 backdrop-blur-xl">
+      <div className="container flex h-[96px] min-w-0 items-center justify-between gap-4 sm:h-[104px]">
+        <Link href="/" aria-label="CPM Energie Startseite" className="flex h-[82px] w-[230px] shrink-0 items-center sm:h-[90px] sm:w-[250px]">
+          <img src={LOGO_SRC} alt="CPM Energie" className="block h-full w-full object-contain object-left" />
         </Link>
+
         <nav className="hidden items-center gap-7 md:flex">
-          {links.map(([label, href]) => <Link key={href} href={href} className="text-sm text-slate-300 transition hover:text-white">{label}</Link>)}
+          {links.map(([label, href]) => (
+            <Link key={href} href={href} className="text-sm text-slate-300 transition hover:text-white">{label}</Link>
+          ))}
           <Link href="/kontakt" className="rounded-full bg-[#19b7ff] px-5 py-2.5 text-sm font-bold text-[#03101c] transition hover:bg-white">Kostenlos prüfen</Link>
         </nav>
-        <button onClick={() => setOpen(!open)} className="shrink-0 rounded-lg border border-white/10 px-3 py-2 md:hidden" aria-label="Menü öffnen">☰</button>
+
+        <button onClick={() => setOpen(!open)} className="shrink-0 rounded-xl border border-white/10 px-3.5 py-2.5 text-xl leading-none text-white" aria-label={open ? "Menü schließen" : "Menü öffnen"} aria-expanded={open}>
+          {open ? "×" : "☰"}
+        </button>
       </div>
-      {open && <nav className="container flex flex-col gap-4 border-t border-white/10 py-5 md:hidden">
-        {links.map(([label, href]) => <Link onClick={() => setOpen(false)} key={href} href={href} className="text-slate-200">{label}</Link>)}
-        <Link onClick={() => setOpen(false)} href="/kontakt" className="rounded-full bg-[#19b7ff] px-5 py-3 text-center font-bold text-[#03101c]">Kostenlos prüfen</Link>
-      </nav>}
+
+      {open && (
+        <nav className="container flex flex-col gap-4 border-t border-white/10 py-5 md:hidden">
+          {links.map(([label, href]) => (
+            <Link onClick={() => setOpen(false)} key={href} href={href} className="text-slate-200">{label}</Link>
+          ))}
+          <Link onClick={() => setOpen(false)} href="/kontakt" className="rounded-full bg-[#19b7ff] px-5 py-3 text-center font-bold text-[#03101c]">Kostenlos prüfen</Link>
+        </nav>
+      )}
     </header>
   );
 }
