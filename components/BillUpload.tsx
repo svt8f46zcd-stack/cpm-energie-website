@@ -79,7 +79,14 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
 
   const removeFile = (index: number) => {
     const next = files.filter((_, i) => i !== index);
-    setFiles(next); setAnalysis(null); setStatus(next.length ? "ready" : "idle"); void saveBillSession(next, null).catch(() => undefined);
+    setFiles(next); setAnalysis(null); setStatus(next.length ? "ready" : "idle");
+    void saveBillSession(next, null).catch(() => undefined);
+  };
+
+  const removeAllFiles = () => {
+    setFiles([]); setAnalysis(null); setError(""); setStatus("idle");
+    if (inputRef.current) inputRef.current.value = "";
+    void saveBillSession([], null).catch(() => undefined);
   };
 
   const analyzeFiles = async () => {
@@ -123,7 +130,16 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
       <p className="mt-1 text-xs leading-5 text-slate-500">Du musst nichts abtippen. Ich lese die wichtigen Tarifdaten automatisch aus der Rechnung.</p>
       <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={status === "analyzing"} onClick={() => inputRef.current?.click()} className="rounded-xl border border-[#19b7ff]/35 bg-[#19b7ff]/10 px-4 py-2.5 text-sm font-bold text-[#8ce4ff] transition hover:bg-[#19b7ff]/20 disabled:opacity-50">{files.length ? "Weitere Seite hinzufügen" : "Rechnung auswählen"}</button>{files.length > 0 && <button type="button" disabled={status === "analyzing"} onClick={analyzeFiles} className="rounded-xl bg-[#19b7ff] px-4 py-2.5 text-sm font-bold text-[#03101c] disabled:opacity-50">{status === "analyzing" ? "Rechnung wird geprüft …" : status === "done" ? "Erneut prüfen" : `${files.length} ${files.length === 1 ? "Datei" : "Dateien"} prüfen`}</button>}</div>
       <input ref={inputRef} type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={e => { mergeFiles(Array.from(e.target.files || [])); e.currentTarget.value = ""; }} />
-      {files.length > 0 && <div className="mt-4 space-y-2"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ausgewählt · {files.length}/12</p>{files.map((file, index) => <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[.02] px-3 py-2"><span className="text-xs font-semibold text-emerald-300">✓</span><span className="min-w-0 flex-1 truncate text-xs text-slate-300">{file.type === "application/pdf" ? `Datei ${index + 1} · ${file.name}` : `Seite ${index + 1} · ${file.name}`}</span><button type="button" disabled={status === "analyzing"} onClick={() => removeFile(index)} className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-white/5 hover:text-white">Entfernen</button></div>)}</div>}
+      {files.length > 0 && <div className="mt-4 space-y-2">
+        <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Hochgeladene Dateien · {files.length}/12</p><button type="button" disabled={status === "analyzing"} onClick={removeAllFiles} className="rounded-lg border border-red-400/20 bg-red-400/5 px-2.5 py-1.5 text-[11px] font-bold text-red-300 transition hover:bg-red-400/10 disabled:opacity-50">Alle löschen</button></div>
+        {files.map((file, index) => <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.02] p-2.5">
+          <div className="h-14 w-12 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-[#071321]">
+            {file.type.startsWith("image/") ? <img src={URL.createObjectURL(file)} alt={`Vorschau Seite ${index + 1}`} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[10px] font-black text-[#66d5ff]">PDF</div>}
+          </div>
+          <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-200">{file.type === "application/pdf" ? `Datei ${index + 1} · ${file.name}` : `Seite ${index + 1} · ${file.name}`}</p><p className="mt-0.5 text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(1)} MB</p></div>
+          <button type="button" aria-label={`${file.name} löschen`} title="Datei löschen" disabled={status === "analyzing"} onClick={() => removeFile(index)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-red-400/20 bg-red-400/5 text-red-300 transition hover:bg-red-400/10 disabled:opacity-50">✕</button>
+        </div>)}
+      </div>}
       {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">{files.length > 1 ? `Ich prüfe ${files.length} Seiten gemeinsam und führe die erkannten Rechnungsdaten zusammen.` : "Ich prüfe deine Rechnung auf Anbieter, Verbrauch und Preise."}</p>}
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold text-white">Rechnung erkannt</p><span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">{files.length > 1 ? `${files.length} Seiten` : "Automatisch"}</span></div>
