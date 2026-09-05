@@ -11,7 +11,7 @@ const links = [
 ];
 
 const ASSET_BASE = "/cpm-energie-website";
-const LOGO_SRC = `${ASSET_BASE}/logo-cpm-energie.svg?v=20260905-8`;
+const LOGO_SRC = `${ASSET_BASE}/logo-cpm-energie.svg?v=20260905-9`;
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -23,8 +23,8 @@ export function Header() {
           <img
             src={LOGO_SRC}
             alt="CPM Energie – Mehr Möglichkeiten für Morgen"
-            width={1536}
-            height={768}
+            width={1050}
+            height={475}
             draggable={false}
           />
         </Link>
