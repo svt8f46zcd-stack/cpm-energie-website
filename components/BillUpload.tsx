@@ -72,6 +72,7 @@ function valuesAgree(a: string | number | null, b: string | number | null, key: 
 }
 
 function mergeAnalyses(results: BillAnalysisResult[]): BillAnalysisResult {
+  if (!results.length) throw new Error("NO_USABLE_DATA");
   const first = results[0];
   const merged = structuredClone(first);
 
@@ -120,19 +121,16 @@ function mergeAnalyses(results: BillAnalysisResult[]): BillAnalysisResult {
   return merged;
 }
 
-async function analyzeWithConcurrency(files: File[], concurrency = 3) {
-  const results: BillAnalysisResult[] = new Array(files.length);
-  let cursor = 0;
-
-  const worker = async () => {
-    while (true) {
-      const index = cursor++;
-      if (index >= files.length) return;
-      results[index] = await analyzeBill(files[index]);
+async function analyzeWithConcurrency(files: File[], concurrency = 1) {
+  const results: BillAnalysisResult[] = [];
+  for (const file of files) {
+    try {
+      results.push(await analyzeBill(file));
+    } catch {
+      // A single unreadable page must not invalidate the other invoice pages.
     }
-  };
-
-  await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, () => worker()));
+  }
+  if (!results.length) throw new Error("NO_USABLE_DATA");
   return results;
 }
 
@@ -187,9 +185,14 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
     if (!files.length) return;
     setError(""); setStatus("analyzing");
     try {
-      const results = await analyzeWithConcurrency(files, 3);
+      const results = await analyzeWithConcurrency(files, 1);
       const merged = mergeAnalyses(results);
-      const names = await analyzeBillNames(files);
+      let names: { firstName: string | null; lastName: string | null; confidence: "high" | "medium" | "unknown" } = { firstName: null, lastName: null, confidence: "unknown" };
+      try {
+        names = await analyzeBillNames(files);
+      } catch {
+        // Name recognition is optional. Tariff recognition must still succeed when name OCR fails.
+      }
       const withName: BillAnalysisWithName = {
         ...merged,
         firstName: { value: names.firstName, confidence: names.confidence, source: names.firstName ? "document" : "not_detected" },
@@ -231,7 +234,7 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
           <button type="button" aria-label={`${file.name} löschen`} title="Datei löschen" disabled={status === "analyzing"} onClick={() => removeFile(index)} className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-400/20 bg-red-400/5 px-2.5 text-[11px] font-bold text-red-300 transition hover:bg-red-400/10 disabled:opacity-50"><span aria-hidden="true">✕</span><span>Löschen</span></button>
         </div>)}
       </div>}
-      {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">{files.length > 1 ? `Ich prüfe ${files.length} Seiten parallel, gleiche die Ergebnisse ab und übernehme nur belastbare Werte.` : "Ich prüfe deine Rechnung auf Anbieter, Energieart, Verbrauch und Preise."}</p>}
+      {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">{files.length > 1 ? `Ich prüfe ${files.length} Seiten nacheinander, gleiche die Ergebnisse ab und übernehme nur belastbare Werte.` : "Ich prüfe deine Rechnung auf Anbieter, Energieart, Verbrauch und Preise."}</p>}
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold text-white">Rechnung erkannt</p><span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">{files.length > 1 ? `${files.length} Seiten` : "Automatisch"}</span></div>
         <p className="mt-1 text-xs leading-5 text-slate-400">Die Erkennung kombiniert mehrere Seiten derselben Rechnung. Bei widersprüchlichen Hochsicherheitswerten wird nicht einfach der größte Wert übernommen.</p>
