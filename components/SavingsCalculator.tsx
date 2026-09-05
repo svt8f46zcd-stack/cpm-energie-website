@@ -7,11 +7,36 @@ import { getBillSession } from "@/lib/bill-session";
 
 const OPENPLZ = "https://openplzapi.org/de";
 const NOMINATIM = "https://nominatim.openstreetmap.org";
-const PROVIDERS = ["E.ON", "EnBW", "Vattenfall", "RheinEnergie", "Mainova", "Stadtwerke München", "Yello Strom", "LichtBlick", "Naturstrom", "EWE", "Sonstiger Anbieter"];
+
+const PROVIDERS = [
+  "E.ON", "EnBW", "Vattenfall", "RWE", "EWE", "ENTEGA", "Mainova", "MVV Energie",
+  "SWM", "Stadtwerke München", "Stadtwerke Mainz", "Stadtwerke Wiesbaden", "GGEW", "EWR",
+  "Energieversorgung Mittelrhein", "Pfalzwerke", "Yello", "Octopus Energy", "LichtBlick",
+  "Naturstrom", "Green Planet Energy", "Ostrom", "immergrün!", "eprimo", "Maingau Energie",
+  "ExtraEnergie", "123energie", "NEW Energie", "Süwag", "LEW", "ENTEGA Plus", "goldgas",
+  "RheinEnergie", "SachsenEnergie", "WEMAG", "Stadtwerke Karlsruhe", "Stadtwerke Heidelberg",
+  "Stadtwerke Darmstadt", "Stadtwerke Offenbach", "Stadtwerke Frankfurt", "Andere",
+];
+
 type Energy = "strom" | "gas" | "both";
 type Mode = "manual" | "bill";
 type Locality = { name?: string; municipality?: { name?: string } };
 type Geo = { address?: { city?: string; town?: string; village?: string; municipality?: string; road?: string; postcode?: string } };
+
+const STORAGE_KEY = "cpm-tarifcheck-state";
+
+type SavedState = {
+  energy: Energy;
+  customer: "private" | "business";
+  mode: Mode | null;
+  strom: number;
+  gas: number;
+  plz: string;
+  ort: string;
+  strasse: string;
+  hausnummer: string;
+  anbieter: string;
+};
 
 export function SavingsCalculator() {
   const [step, setStep] = useState(1);
@@ -35,20 +60,48 @@ export function SavingsCalculator() {
   const goTo = (next: number) => setStep(next);
 
   useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<SavedState>;
+        if (saved.energy) setEnergy(saved.energy);
+        if (saved.customer) setCustomer(saved.customer);
+        if (saved.mode) setMode(saved.mode);
+        if (typeof saved.strom === "number") setStrom(saved.strom);
+        if (typeof saved.gas === "number") setGas(saved.gas);
+        if (saved.plz) setPlz(saved.plz);
+        if (saved.ort) setOrt(saved.ort);
+        if (saved.strasse) setStrasse(saved.strasse);
+        if (saved.hausnummer) setHausnummer(saved.hausnummer);
+        if (saved.anbieter) setAnbieter(saved.anbieter);
+        if (saved.plz || saved.ort || saved.anbieter) setStep(4);
+      }
+    } catch { /* ignore invalid session data */ }
+
     const q = new URLSearchParams(window.location.search);
-    setPlz(q.get("plz") || "");
-    setOrt(q.get("ort") || "");
-    setStrasse(q.get("strasse") || "");
-    setHausnummer(q.get("hausnummer") || "");
-    setAnbieter(q.get("anbieter") || "");
+    const qPlz = q.get("plz") || "";
+    const qOrt = q.get("ort") || "";
+    const qStrasse = q.get("strasse") || "";
+    const qHausnummer = q.get("hausnummer") || "";
+    const qAnbieter = q.get("anbieter") || "";
+    if (qPlz) setPlz(qPlz);
+    if (qOrt) setOrt(qOrt);
+    if (qStrasse) setStrasse(qStrasse);
+    if (qHausnummer) setHausnummer(qHausnummer);
+    if (qAnbieter) setAnbieter(qAnbieter);
     const e = q.get("tarif") as Energy | null;
     if (e === "strom" || e === "gas" || e === "both") setEnergy(e);
     const s = Number(q.get("strom") || 0);
     const g = Number(q.get("gas") || 0);
     if (s > 0) setStrom(s);
     if (g > 0) setGas(g);
-    if (q.get("plz") || q.get("ort")) setStep(4);
+    if (qPlz || qOrt || qAnbieter) setStep(4);
   }, []);
+
+  useEffect(() => {
+    const saved: SavedState = { energy, customer, mode, strom, gas, plz, ort, strasse, hausnummer, anbieter };
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch { /* ignore storage errors */ }
+  }, [energy, customer, mode, strom, gas, plz, ort, strasse, hausnummer, anbieter]);
 
   useEffect(() => {
     if (step !== 4) return;
@@ -65,10 +118,10 @@ export function SavingsCalculator() {
         if (type.includes("gas")) setGas(consumption);
         else setStrom(consumption);
       }
-      if (typeof result.provider.value === "string" && result.provider.value.trim()) setAnbieter(result.provider.value);
+      if (typeof result.provider.value === "string" && result.provider.value.trim() && !anbieter.trim()) setAnbieter(result.provider.value);
     }).catch(() => undefined);
     return () => { active = false; };
-  }, [step]);
+  }, [step, anbieter]);
 
   useEffect(() => {
     if (step === 1) return;
@@ -105,13 +158,14 @@ export function SavingsCalculator() {
   }, [plz, ort, strasse]);
 
   const providerMatches = useMemo(() => {
-    const q = anbieter.toLowerCase();
-    return PROVIDERS.filter(x => !q || x.toLowerCase().includes(q)).slice(0, 6);
+    const q = anbieter.trim().toLowerCase();
+    return PROVIDERS.filter(x => !q || x.toLowerCase().includes(q)).slice(0, 8);
   }, [anbieter]);
 
   const consumptionReady = energy === "strom" ? strom > 0 : energy === "gas" ? gas > 0 : strom > 0 && gas > 0;
   const addressReady = /^\d{5}$/.test(plz) && !!ort && !!strasse.trim() && !!hausnummer.trim();
   const query = new URLSearchParams({ plz, ort, strasse, hausnummer, anbieter, strom: String(strom), gas: String(gas), kundentyp: customer, tarif: energy });
+  const contactHref = `/kontakt?${query.toString()}`;
 
   async function useLocation() {
     if (!navigator.geolocation) return;
@@ -172,7 +226,30 @@ export function SavingsCalculator() {
       )}
 
       {step === 4 && (
-        <div className="space-y-5"><div className="rounded-2xl border border-[#19b7ff]/20 bg-[#19b7ff]/5 p-5"><p className="font-bold text-white">Fast geschafft.</p><p className="mt-1 text-sm leading-6 text-slate-400">Mit deiner Anschlussadresse können wir die Tarifprüfung passend eingrenzen. Der Anbieter ist optional.</p></div><div className="grid gap-4 md:grid-cols-2"><Field label="PLZ"><div className="mt-2 flex gap-2"><input value={plz} onChange={e => { setPlz(e.target.value.replace(/\D/g, "").slice(0, 5)); setOrt(""); setStrasse(""); }} placeholder="55278" inputMode="numeric" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]"/><button type="button" onClick={useLocation} className="rounded-xl border border-[#19b7ff]/30 px-4 text-[#66d5ff]">{loading ? "…" : "📍"}</button></div>{orte.length > 0 && !ort && <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#081725]">{orte.map(x => <button key={x} type="button" onClick={() => setOrt(x)} className="block w-full border-b border-white/5 px-4 py-3 text-left text-sm text-white">{x}</button>)}</div>}{ort && <p className="mt-2 text-xs text-[#66d5ff]">✓ {ort}</p>}</Field><Field label="Straße"><div className="relative mt-2"><input value={strasse} disabled={!ort} onChange={e => { setStrasse(e.target.value); setStrassenOpen(true); }} onFocus={() => setStrassenOpen(true)} placeholder={ort ? "z. B. Hauptstraße" : "Erst PLZ und Ort"} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none disabled:opacity-40 focus:border-[#19b7ff]"/>{strassenOpen && strassen.length > 0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725]">{strassen.map(x => <button key={x} type="button" onClick={() => { setStrasse(x); setStrassenOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-white">{x}</button>)}</div>}</div></Field><Field label="Hausnummer"><input value={hausnummer} onChange={e => setHausnummer(e.target.value.slice(0, 8))} placeholder="z. B. 3a" className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]"/></Field><Field label="Aktueller Anbieter" optional><div className="relative mt-2"><input value={anbieter} onChange={e => { setAnbieter(e.target.value); setAnbieterOpen(true); }} onFocus={() => setAnbieterOpen(true)} placeholder="z. B. E.ON" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]"/>{anbieterOpen && providerMatches.length > 0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#081725]">{providerMatches.map(x => <button key={x} type="button" onClick={() => { setAnbieter(x); setAnbieterOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-white">{x}</button>)}</div>}</div></Field></div><div className="rounded-2xl border border-white/10 bg-white/[.025] p-4"><p className="font-semibold text-white">Tarifprofil</p><p className="mt-1 text-xs text-slate-500">Nur für die passende Einordnung des Vergleichs.</p><div className="mt-3 grid grid-cols-2 gap-3">{([["private", "Privathaushalt"], ["business", "Gewerbe"]] as const).map(([v, l]) => <button key={v} type="button" onClick={() => setCustomer(v)} className={`rounded-xl border py-3 font-semibold ${customer === v ? "border-[#19b7ff] text-[#66d5ff]" : "border-white/10 text-slate-400"}`}>{l}</button>)}</div></div><div className="rounded-xl border border-white/10 bg-white/[.02] p-4"><p className="text-sm font-semibold text-white">Deine Angaben</p><div className="mt-2 grid gap-1 text-sm text-slate-400"><span>{energy === "strom" ? "⚡ Strom" : energy === "gas" ? "🔥 Gas" : "⚡ Strom + 🔥 Gas"}{strom > 0 ? ` · ${strom.toLocaleString("de-DE")} kWh` : ""}{gas > 0 ? ` · ${gas.toLocaleString("de-DE")} kWh` : ""}</span><span>📍 {plz || "PLZ fehlt"} {ort}</span>{strasse && <span>🏠 {strasse} {hausnummer}</span>}{anbieter && <span>⚡ {anbieter}</span>}</div></div><div className="rounded-xl border border-white/10 bg-white/[.025] p-4"><p className="text-sm font-semibold text-white">Transparent geprüft</p><p className="mt-1 text-xs leading-5 text-slate-500">Wir zeigen keine erfundene Ersparnis und lösen keinen Anbieterwechsel automatisch aus. Du entscheidest selbst.</p></div><div className="flex gap-3"><button type="button" onClick={() => goTo(mode === "manual" ? 3 : 2)} className="rounded-full border border-white/10 px-6 py-4 font-semibold text-slate-300">Zurück</button>{addressReady ? <Link href={`/kontakt?${query.toString()}`} className="flex-1 rounded-full bg-[#19b7ff] px-6 py-4 text-center font-bold text-[#03101c]">Tarif kostenlos prüfen</Link> : <button type="button" disabled className="flex-1 rounded-full bg-white/10 px-6 py-4 font-bold text-slate-500">Adresse vervollständigen</button>}</div></div>
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-[#19b7ff]/20 bg-[#19b7ff]/5 p-5"><p className="font-bold text-white">Fast geschafft.</p><p className="mt-1 text-sm leading-6 text-slate-400">Mit deiner Anschlussadresse können wir die Tarifprüfung passend eingrenzen. Der Anbieter ist optional und wird für den letzten Schritt gespeichert.</p></div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="PLZ"><div className="relative"><input value={plz} onChange={e => setPlz(e.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" maxLength={5} placeholder="64331" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]" />{loading && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#66d5ff]">Suche …</span>}</div>{orte.length > 1 && <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#07182a]">{orte.map(item => <button key={item} type="button" onClick={() => setOrt(item)} className="block w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-[#19b7ff]/10">{item}</button>)}</div>}</Field>
+            <Field label="Ort"><input value={ort} onChange={e => setOrt(e.target.value)} placeholder="Ort wird automatisch erkannt …" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]" /></Field>
+            <Field label="Straße"><div className="relative"><input value={strasse} onChange={e => { setStrasse(e.target.value); setStrassenOpen(true); }} onFocus={() => setStrassenOpen(true)} placeholder={ort ? "z. B. Eibenweg" : "Erst Ort eingeben"} disabled={!ort} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff] disabled:opacity-40" />{strassenOpen && ort && strasse.length >= 2 && strassen.length > 0 && <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-white/10 bg-[#07182a] shadow-2xl">{strassen.map(item => <button key={item} type="button" onClick={() => { setStrasse(item); setStrassenOpen(false); }} className="block w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-[#19b7ff]/10">{item}</button>)}</div>}</div></Field>
+            <Field label="Hausnummer"><input value={hausnummer} onChange={e => setHausnummer(e.target.value)} placeholder="z. B. 3a" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-[#19b7ff]" /></Field>
+          </div>
+
+          <div className="rounded-2xl border border-[#19b7ff]/20 bg-[#19b7ff]/5 p-5">
+            <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-slate-300">Aktueller Anbieter</p><p className="mt-1 text-xs leading-5 text-slate-500">Große Auswahl. Du kannst direkt suchen oder aus der Liste auswählen. Die Auswahl bleibt bis zum letzten Schritt gespeichert.</p></div>{anbieter && <button type="button" onClick={() => setAnbieter("")} className="shrink-0 text-xs font-semibold text-slate-500 hover:text-white">Auswahl löschen</button>}</div>
+            <div className="relative mt-3">
+              <input value={anbieter} onChange={e => { setAnbieter(e.target.value); setAnbieterOpen(true); }} onFocus={() => setAnbieterOpen(true)} placeholder="Anbieter auswählen oder suchen …" autoComplete="organization" className="w-full rounded-xl border border-white/10 bg-[#0b1b30] px-4 py-3 text-white outline-none focus:border-[#19b7ff]" />
+              {anbieterOpen && providerMatches.length > 0 && <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-64 overflow-y-auto rounded-xl border border-[#19b7ff]/20 bg-[#07182a] shadow-2xl">{providerMatches.map(provider => <button key={provider} type="button" onClick={() => { setAnbieter(provider); setAnbieterOpen(false); }} className="block w-full border-b border-white/5 px-4 py-3 text-left text-sm text-slate-200 last:border-0 hover:bg-[#19b7ff]/10 hover:text-white">{provider}</button>)}</div>}
+            </div>
+            {anbieter && <p className="mt-2 text-xs font-semibold text-[#66d5ff]">✓ {anbieter} gespeichert</p>}
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-slate-500">Energie</p><p className="mt-1 font-bold text-white">{energy === "both" ? "Strom + Gas" : energy === "strom" ? "Strom" : "Gas"}</p></div><div><p className="text-xs text-slate-500">Verbrauch</p><p className="mt-1 font-bold text-white">{energy === "both" ? `${strom.toLocaleString("de-DE")} + ${gas.toLocaleString("de-DE")} kWh` : `${(energy === "gas" ? gas : strom).toLocaleString("de-DE")} kWh`}</p></div><div><p className="text-xs text-slate-500">Anbieter</p><p className="mt-1 font-bold text-white">{anbieter || "Noch nicht ausgewählt"}</p></div></div></div>
+
+          <div className="flex gap-3"><button type="button" onClick={() => goTo(mode === "manual" ? 3 : 2)} className="rounded-full border border-white/10 px-6 py-4 font-semibold text-slate-300">Zurück</button>{addressReady ? <Link href={contactHref} className="flex-1 rounded-full bg-[#19b7ff] px-6 py-4 text-center font-bold text-[#03101c] transition hover:brightness-110">Zur Anfrage mit allen Daten →</Link> : <button type="button" disabled className="flex-1 rounded-full bg-white/10 px-6 py-4 font-bold text-slate-500">Adresse vollständig eingeben</button>}</div>
+          <button type="button" onClick={useLocation} className="w-full rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-400 hover:text-white">{loading ? "Standort wird ermittelt …" : "Adresse automatisch ermitteln"}</button>
+        </div>
       )}
     </div>
   );
