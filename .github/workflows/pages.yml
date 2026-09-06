@@ -18,14 +18,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - uses: actions/configure-pages@v5
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Enable precision invoice recognition
         shell: bash
         run: |
@@ -36,28 +43,17 @@ jobs:
           s = s.replace('from "@/lib/bill-analysis-v3"', 'from "@/lib/bill-analysis-precision"', 1)
           p.write_text(s)
           PY
+
       - name: Build static site
-        id: build
-        shell: bash
         run: |
-          set +e
-          npm run build 2>&1 | tee build.log
-          status=${PIPESTATUS[0]}
-          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-          if [ "$status" -eq 0 ]; then
-            test -f out/index.html
-            cp out/index.html out/404.html
-            touch out/.nojekyll
-          fi
-          exit $status
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cpm-energie-build-log
-          path: build.log
+          set -e
+          npm run build
+          test -f out/index.html
+          cp out/index.html out/404.html
+          touch out/.nojekyll
+          echo "Static export verified: $(find out -type f | wc -l) files"
+
       - name: Upload Pages artifact
-        if: success()
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./out
@@ -69,5 +65,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - id: deployment
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
