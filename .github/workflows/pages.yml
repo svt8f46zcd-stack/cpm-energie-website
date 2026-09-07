@@ -36,9 +36,15 @@ jobs:
       - name: Build static site
         run: |
           set -e
+          rm -rf out
           npm run build
-          test -f out/index.html
-          test -f out/404.html
+
+          # GitHub Pages is a static host. Keep the real homepage as the
+          # fallback so direct visits and stale/deep links do not dead-end.
+          test -s out/index.html
+          cp out/index.html out/404.html
+          test -s out/404.html
+
           test -f out/ersparnisrechner/index.html
           test -f out/kontakt/index.html
           test -f out/kontakt/rechnung/index.html
@@ -46,6 +52,7 @@ jobs:
           test -f out/datenschutz/index.html
           test -f out/so-funktionierts/index.html
           test -f out/ueber-mich/index.html
+
           touch out/.nojekyll
           echo "Static export verified: $(find out -type f | wc -l) files"
 
