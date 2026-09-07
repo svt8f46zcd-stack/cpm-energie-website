@@ -36,12 +36,16 @@ jobs:
       - name: Enable precision invoice recognition
         shell: bash
         run: |
+          set -e
           python3 - <<'PY'
           from pathlib import Path
           p = Path("components/BillUpload.tsx")
           s = p.read_text()
-          s = s.replace('from "@/lib/bill-analysis-v3"', 'from "@/lib/bill-analysis-precision"', 1)
-          p.write_text(s)
+          old = 'from "@/lib/bill-analysis-enhanced"'
+          new = 'from "@/lib/bill-analysis-precision"'
+          if old not in s:
+              raise SystemExit("Expected BillUpload analyzer import was not found")
+          p.write_text(s.replace(old, new, 1))
           PY
 
       - name: Build static site
@@ -49,7 +53,14 @@ jobs:
           set -e
           npm run build
           test -f out/index.html
-          cp out/index.html out/404.html
+          test -f out/404.html
+          test -f out/ersparnisrechner/index.html
+          test -f out/kontakt/index.html
+          test -f out/kontakt/rechnung/index.html
+          test -f out/impressum/index.html
+          test -f out/datenschutz/index.html
+          test -f out/so-funktionierts/index.html
+          test -f out/ueber-mich/index.html
           touch out/.nojekyll
           echo "Static export verified: $(find out -type f | wc -l) files"
 
