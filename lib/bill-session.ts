@@ -4,11 +4,13 @@ const DB_NAME = "cpm-bill-session";
 const STORE_NAME = "files";
 const DB_VERSION = 1;
 const META_KEY = "cpm-bill-session-meta";
+export const BILL_ANALYSIS_VERSION = "2026-09-09-final-ocr-v3";
 
 export type BillSessionMeta = {
   analysis: BillAnalysisResult | null;
   fileNames: string[];
   updatedAt: number;
+  analysisVersion?: string;
 };
 
 function openDb(): Promise<IDBDatabase> {
@@ -33,7 +35,7 @@ export async function saveBillSession(files: File[], analysis: BillAnalysisResul
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error || new Error("INDEXED_DB_WRITE_FAILED"));
   });
-  const meta: BillSessionMeta = { analysis, fileNames: files.map(file => file.name), updatedAt: Date.now() };
+  const meta: BillSessionMeta = { analysis, fileNames: files.map(file => file.name), updatedAt: Date.now(), analysisVersion: analysis ? BILL_ANALYSIS_VERSION : undefined };
   localStorage.setItem(META_KEY, JSON.stringify(meta));
   db.close();
 }
