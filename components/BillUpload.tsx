@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis-reliable";
+import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis-v3";
 import { analyzeBillNames } from "@/lib/bill-name-analysis";
 import { getBillSession, saveBillSession } from "@/lib/bill-session";
 
@@ -25,21 +25,35 @@ function setReactInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function setReactSelectValue(select: HTMLSelectElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+  setter?.call(select, value);
+  select.dispatchEvent(new Event("input", { bubbles: true }));
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 function applyRecognizedData(result: BillAnalysisResult) {
   const consumption = result.annualConsumptionKwh.value;
+  const type = String(result.energyType.value || "").toLowerCase();
   if (typeof consumption === "number" || typeof consumption === "string") {
-    const type = String(result.energyType.value || "").toLowerCase();
     const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'));
     const target = type.includes("gas")
-      ? inputs.find(input => input.placeholder?.includes("12.000"))
-      : inputs.find(input => input.placeholder?.includes("3.000"));
+      ? inputs.find(input => /12\.000|gas|verbrauch/i.test(`${input.placeholder} ${input.name} ${input.getAttribute("aria-label") || ""}`))
+      : inputs.find(input => /3\.000|strom|verbrauch/i.test(`${input.placeholder} ${input.name} ${input.getAttribute("aria-label") || ""}`));
     if (target) setReactInputValue(target, String(consumption));
   }
 
   const provider = result.provider.value;
   if (typeof provider === "string" && provider.trim()) {
-    const input = Array.from(document.querySelectorAll<HTMLInputElement>("input")).find(input => input.placeholder?.toLowerCase().includes("e.on"));
-    if (input) setReactInputValue(input, provider);
+    const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("input"));
+    const target = inputs.find(input => /anbieter|versorger|stromanbieter|gasanbieter|e\.on/i.test(`${input.placeholder} ${input.name} ${input.getAttribute("aria-label") || ""}`));
+    if (target) setReactInputValue(target, provider);
+    const selects = Array.from(document.querySelectorAll<HTMLSelectElement>("select"));
+    const select = selects.find(s => /anbieter|versorger|energie/i.test(`${s.name} ${s.id} ${s.getAttribute("aria-label") || ""}`) && Array.from(s.options).some(o => o.text.toLowerCase().includes(provider.toLowerCase())));
+    if (select) {
+      const option = Array.from(select.options).find(o => o.text.toLowerCase().includes(provider.toLowerCase()));
+      if (option) setReactSelectValue(select, option.value);
+    }
   }
 }
 
@@ -109,14 +123,18 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
     try {
       const results: BillAnalysisResult[] = [];
       for (const file of files) {
-        try { results.push(await analyzeBill(file)); } catch { /* continue with readable pages */ }
+        try {
+          results.push(await analyzeBill(file));
+        } catch {
+          // Keep processing the remaining files. The analyzer already falls back to OCR when needed.
+        }
       }
       if (!results.length) throw new Error("NO_USABLE_DATA");
 
-      const merged = results.reduce((best, current) => {
-        const score = (r: BillAnalysisResult) => [r.energyType, r.provider, r.annualConsumptionKwh, r.workPriceCtPerKwh, r.basePriceEurPerYear].filter(f => f.value !== null && f.value !== "").length;
-        return score(current) > score(best) ? current : best;
-      });
+      const score = (r: BillAnalysisResult) =>
+        [r.energyType, r.provider, r.annualConsumptionKwh, r.workPriceCtPerKwh, r.basePriceEurPerYear, r.monthlyPaymentEur, r.billingPeriod]
+          .reduce((total, field) => total + (field.value !== null && field.value !== "" ? 1 : 0), 0);
+      const merged = results.reduce((best, current) => score(current) > score(best) ? current : best);
 
       let names: { firstName: string | null; lastName: string | null; confidence: "high" | "medium" | "unknown" } = { firstName: null, lastName: null, confidence: "unknown" };
       try { names = await analyzeBillNames(files); } catch { /* name OCR is optional */ }
@@ -127,12 +145,19 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
         lastName: { value: names.lastName, confidence: names.confidence, source: names.lastName ? "document" : "not_detected" },
       };
 
-      const usable = [withName.energyType.value, withName.provider.value, withName.annualConsumptionKwh.value, withName.workPriceCtPerKwh.value, withName.basePriceEurPerYear.value];
+      const usable = [
+        withName.energyType.value,
+        withName.provider.value,
+        withName.annualConsumptionKwh.value,
+        withName.workPriceCtPerKwh.value,
+        withName.basePriceEurPerYear.value,
+        withName.monthlyPaymentEur.value,
+      ];
       if (!usable.some(value => value !== null && value !== "")) throw new Error("NO_USABLE_DATA");
 
       setAnalysis(withName);
       setStatus("done");
-      applyRecognizedData(merged);
+      applyRecognizedData(withName);
       await saveBillSession(files, withName);
     } catch (err) {
       setStatus("ready");
