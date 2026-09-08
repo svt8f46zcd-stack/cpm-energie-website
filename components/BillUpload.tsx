@@ -70,6 +70,13 @@ function fileAccepted(file: File) {
   return ["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.type) || /\.(pdf|jpe?g|png|webp)$/i.test(file.name);
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number) {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("BILL_ANALYSIS_TIMEOUT")), ms)),
+  ]);
+}
+
 export default function BillUpload({ onContinue }: { onContinue?: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -118,15 +125,16 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
   };
 
   const analyzeFiles = async () => {
-    if (!files.length) return;
+    if (!files.length || status === "analyzing") return;
     setError(""); setStatus("analyzing");
     try {
       const results: BillAnalysisResult[] = [];
       for (const file of files) {
         try {
-          results.push(await analyzeBill(file));
+          // Keep the UI responsive even if a browser OCR worker or external PDF library stalls.
+          results.push(await withTimeout(analyzeBill(file), 45000));
         } catch {
-          // Keep processing the remaining files. The analyzer already falls back to OCR when needed.
+          // Continue with the remaining pages. One broken page must not block the whole bill.
         }
       }
       if (!results.length) throw new Error("NO_USABLE_DATA");
@@ -136,29 +144,37 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
           .reduce((total, field) => total + (field.value !== null && field.value !== "" ? 1 : 0), 0);
       const merged = results.reduce((best, current) => score(current) > score(best) ? current : best);
 
-      let names: { firstName: string | null; lastName: string | null; confidence: "high" | "medium" | "unknown" } = { firstName: null, lastName: null, confidence: "unknown" };
-      try { names = await analyzeBillNames(files); } catch { /* name OCR is optional */ }
-
-      const withName: BillAnalysisWithName = {
-        ...merged,
-        firstName: { value: names.firstName, confidence: names.confidence, source: names.firstName ? "document" : "not_detected" },
-        lastName: { value: names.lastName, confidence: names.confidence, source: names.lastName ? "document" : "not_detected" },
-      };
-
       const usable = [
-        withName.energyType.value,
-        withName.provider.value,
-        withName.annualConsumptionKwh.value,
-        withName.workPriceCtPerKwh.value,
-        withName.basePriceEurPerYear.value,
-        withName.monthlyPaymentEur.value,
+        merged.energyType.value,
+        merged.provider.value,
+        merged.annualConsumptionKwh.value,
+        merged.workPriceCtPerKwh.value,
+        merged.basePriceEurPerYear.value,
+        merged.monthlyPaymentEur.value,
       ];
       if (!usable.some(value => value !== null && value !== "")) throw new Error("NO_USABLE_DATA");
 
-      setAnalysis(withName);
+      // Show the tariff result immediately. Name OCR is optional and must never delay the bill result.
+      const initial: BillAnalysisWithName = {
+        ...merged,
+        firstName: { value: null, confidence: "unknown", source: "not_detected" },
+        lastName: { value: null, confidence: "unknown", source: "not_detected" },
+      };
+      setAnalysis(initial);
       setStatus("done");
-      applyRecognizedData(withName);
-      await saveBillSession(files, withName);
+      applyRecognizedData(initial);
+      await saveBillSession(files, initial);
+
+      // Run recipient-name OCR separately. A slow name worker can no longer make the main button appear stuck.
+      void withTimeout(analyzeBillNames(files), 12000).then(names => {
+        const withName: BillAnalysisWithName = {
+          ...initial,
+          firstName: { value: names.firstName, confidence: names.confidence, source: names.firstName ? "document" : "not_detected" },
+          lastName: { value: names.lastName, confidence: names.confidence, source: names.lastName ? "document" : "not_detected" },
+        };
+        setAnalysis(withName);
+        void saveBillSession(files, withName).catch(() => undefined);
+      }).catch(() => undefined);
     } catch (err) {
       setStatus("ready");
       setError(err instanceof Error && err.message === "OCR_LIBRARY_LOAD_FAILED"
@@ -186,24 +202,19 @@ export default function BillUpload({ onContinue }: { onContinue?: () => void }) 
           <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Hochgeladene Dateien · {files.length}/12</p><button type="button" disabled={status === "analyzing"} onClick={removeAllFiles} className="rounded-lg border border-red-400/20 bg-red-400/5 px-2.5 py-1.5 text-[11px] font-bold text-red-300">Alle löschen</button></div>
           {files.map((file, index) => <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.02] p-2.5">
             <div className="h-14 w-12 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-[#071321]">{file.type.startsWith("image/") ? <img src={URL.createObjectURL(file)} alt={`Vorschau Seite ${index + 1}`} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[10px] font-black text-[#66d5ff]">PDF</div>}</div>
-            <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-200">{fileLooksLikePdf(file) ? `Datei ${index + 1} · ${file.name}` : `Seite ${index + 1} · ${file.name}`}</p><p className="mt-0.5 text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(1)} MB</p></div>
+            <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-200">{file.type === "application/pdf" || /\.pdf$/i.test(file.name) ? `Datei ${index + 1} · ${file.name}` : `Seite ${index + 1} · ${file.name}`}</p><p className="mt-0.5 text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(1)} MB</p></div>
             <button type="button" aria-label={`${file.name} löschen`} disabled={status === "analyzing"} onClick={() => removeFile(index)} className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-400/20 bg-red-400/5 px-2.5 text-[11px] font-bold text-red-300"><span aria-hidden="true">✕</span><span>Löschen</span></button>
           </div>)}
         </div>}
-        {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">Ich prüfe die hochgeladenen Seiten nacheinander und übernehme nur erkannte Tarifdaten.</p>}
+        {status === "analyzing" && <p className="mt-3 text-xs leading-5 text-[#8ce4ff]">Rechnung wird analysiert. Die Tarifdaten werden zuerst übernommen; die Namensprüfung läuft getrennt.</p>}
         {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
         {analysis && <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
           <div className="flex items-center justify-between gap-3"><p className="text-sm font-bold text-white">Rechnung erkannt</p><span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">Automatisch</span></div>
           <div className="mt-3 rounded-lg border border-[#19b7ff]/15 bg-[#19b7ff]/5 p-3"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Rechnungsempfänger</p><p className="mt-1 text-base font-bold text-white">{recipientComplete ? [analysis.firstName?.value, analysis.lastName?.value].filter(Boolean).join(" ") : "Nicht sicher erkannt"}</p><p className="mt-0.5 text-[10px] text-slate-500">{recipientComplete ? `Automatisch erkannt · Sicherheit: ${recipientConfidence}` : "Name wurde nicht sicher erkannt. Die Tarifdaten können trotzdem übernommen werden."}</p></div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">{labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{displayValue(key, f.value)}</p><p className="mt-0.5 text-[10px] text-slate-500">Sicherheit: {f.confidence}</p></div>; })}</div>
-          <p className="mt-3 text-xs font-semibold text-emerald-300">✓ Erkannte Werte wurden in den Tarifcheck übernommen und bleiben für das Kontaktformular erhalten.</p>
-          {onContinue && <button type="button" onClick={onContinue} className="mt-4 w-full rounded-full bg-[#19b7ff] px-5 py-3.5 text-sm font-bold text-[#03101c]">Weiter zur Adresse und Anfrage →</button>}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">{labels.map(([key, label]) => { const f = analysis[key]; return <div key={key} className="rounded-lg border border-white/10 bg-white/[.025] p-2"><p className="text-[10px] uppercase tracking-wider text-slate-500">{label}</p><p className="mt-0.5 text-sm font-semibold text-white">{displayValue(key, f.value)}</p></div>; })}</div>
+          {onContinue && <button type="button" onClick={onContinue} className="mt-4 w-full rounded-xl bg-[#19b7ff] px-4 py-3 text-sm font-bold text-[#03101c]">Mit den erkannten Daten fortfahren</button>}
         </div>}
       </div>
     </div>
   </div>;
-}
-
-function fileLooksLikePdf(file: File) {
-  return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 }
