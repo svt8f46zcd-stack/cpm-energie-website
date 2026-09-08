@@ -8,19 +8,82 @@ import { getBillSession, saveBillSession } from "@/lib/bill-session";
 
 type NameField={value:string|null;confidence:"high"|"medium"|"unknown";source:"document"|"not_detected"};
 type BillAnalysisWithName=BillAnalysisResult&{firstName?:NameField;lastName?:NameField};
-const labels:Array<[keyof BillAnalysisResult,string]>=[["energyType","Energieart"],["provider","Anbieter"],["tariffName","Tarif"],["annualConsumptionKwh","Jahresverbrauch"],["workPriceCtPerKwh","Arbeitspreis"],["basePriceEurPerYear","Grundpreis"],["monthlyPaymentEur","Monatlicher Abschlag"],["billingPeriod","Abrechnungszeitraum"],["contractEnd","Vertragsende"],["cancellationPeriod","Kündigungsfrist"],["address","Verbrauchsstelle"]];
+
 function setInput(input:HTMLInputElement,value:string){const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set;setter?.call(input,value);input.dispatchEvent(new Event("input",{bubbles:true}));input.dispatchEvent(new Event("change",{bubbles:true}));}
 function applyData(r:BillAnalysisResult){const v=r.annualConsumptionKwh.value;const type=String(r.energyType.value||"").toLowerCase();if(typeof v==="number"){const inputs=Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'));const target=type.includes("gas")?inputs.find(i=>/gas|verbrauch/i.test(`${i.placeholder} ${i.name}`)):inputs.find(i=>/strom|verbrauch/i.test(`${i.placeholder} ${i.name}`));if(target)setInput(target,String(v));}if(typeof r.provider.value==="string"&&r.provider.value){const target=Array.from(document.querySelectorAll<HTMLInputElement>("input")).find(i=>/anbieter|versorger/i.test(`${i.placeholder} ${i.name}`));if(target)setInput(target,r.provider.value);}}
-function display(k:keyof BillAnalysisResult,v:string|number|null){if(v===null)return"Nicht erkannt";if(k==="workPriceCtPerKwh")return`${Number(v).toFixed(2).replace(".",",")} ct/kWh`;if(k==="basePriceEurPerYear")return`${Number(v).toFixed(2).replace(".",",")} €/Jahr`;if(k==="monthlyPaymentEur")return`${Number(v).toFixed(2).replace(".",",")} €`;if(k==="annualConsumptionKwh")return`${Number(v).toLocaleString("de-DE")} kWh`;return String(v);}
+function display(k:keyof BillAnalysisResult,v:string|number|null){if(v===null)return"Nicht erkannt";if(k==="workPriceCtPerKwh")return`${Number(v).toFixed(2).replace(".",",")} ct/kWh`;if(k==="basePriceEurPerYear")return`${Number(v).toFixed(2).replace(".",",")} € / Jahr`;if(k==="monthlyPaymentEur")return`${Number(v).toFixed(2).replace(".",",")} €`;if(k==="annualConsumptionKwh")return`${Number(v).toLocaleString("de-DE")} kWh`;return String(v);}
 function accepted(f:File){return["application/pdf","image/jpeg","image/png","image/webp"].includes(f.type)||/\.(pdf|jpe?g|png|webp)$/i.test(f.name);}
 function timeout<T>(p:Promise<T>,ms:number){return Promise.race([p,new Promise<T>((_,r)=>setTimeout(()=>r(new Error("TIMEOUT")),ms))]);}
 function merge(rs:BillAnalysisResult[]){const out={...rs[0]};for(const r of rs.slice(1)){for(const k of Object.keys(out) as Array<keyof BillAnalysisResult>){if(out[k].value===null&&r[k].value!==null)out[k]=r[k];}}return out;}
+
+function Icon({name}:{name:"file"|"chart"|"bolt"|"coins"|"calendar"|"wallet"|"tag"|"info"|"check"}){
+ const common={fill:"none",stroke:"currentColor",strokeWidth:1.8,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
+ const paths={
+  file:<><path {...common} d="M7 2.8h7l4 4v14.4H7z"/><path {...common} d="M14 2.8v4h4M10 11h5M10 15h5M10 19h3"/></>,
+  chart:<><path {...common} d="M5 19V11M12 19V6M19 19V9"/><path {...common} d="M3 21h18"/></>,
+  bolt:<path {...common} d="M13 2 5.5 13h6L11 22l7.5-12h-6z"/>,
+  coins:<><ellipse {...common} cx="12" cy="6.5" rx="7" ry="3"/><path {...common} d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5M5 11.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></>,
+  calendar:<><rect {...common} x="4" y="5" width="16" height="16" rx="2"/><path {...common} d="M8 3v4M16 3v4M4 10h16"/></>,
+  wallet:<><path {...common} d="M4 6.5A2.5 2.5 0 0 1 6.5 4H19v15H6.5A2.5 2.5 0 0 1 4 16.5z"/><path {...common} d="M4 7h15M15 12h5v4h-5a2 2 0 0 1 0-4z"/></>,
+  tag:<path {...common} d="m3 11 8-8h8l2 2v8l-8 8L3 11zM16 8h.01"/>,
+  info:<><circle {...common} cx="12" cy="12" r="9"/><path {...common} d="M12 11v6M12 8h.01"/></>,
+  check:<><circle {...common} cx="12" cy="12" r="9"/><path {...common} d="m8 12 2.5 2.5L16 9"/></>
+ };
+ return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7">{paths[name]}</svg>;
+}
+
+function MetricCard({icon,label,value,wide=false}:{icon:"bolt"|"coins"|"calendar"|"wallet"|"tag";label:string;value:string;wide?:boolean}){
+ return <div className={`${wide?"sm:col-span-2":""} group rounded-[22px] border border-[#1a3850] bg-[#071a2b]/90 px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,.025)] transition-colors`}>
+  <div className="flex items-center gap-4">
+   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0a2a44] text-[#63d5ff] ring-1 ring-[#154968]"><Icon name={icon}/></div>
+   <div className="min-w-0">
+    <p className="text-[15px] font-medium text-[#9aabc2]">{label}</p>
+    <p className="mt-1 break-words text-[22px] font-bold tracking-[-0.02em] text-white sm:text-[24px]">{value}</p>
+   </div>
+  </div>
+ </div>;
+}
 
 export default function BillUploadV2({onContinue}:{onContinue?:()=>void}){
  const inputRef=useRef<HTMLInputElement>(null);const[files,setFiles]=useState<File[]>([]);const[analysis,setAnalysis]=useState<BillAnalysisWithName|null>(null);const[error,setError]=useState("");const[status,setStatus]=useState<"idle"|"ready"|"analyzing"|"done">("idle");
  useEffect(()=>{getBillSession().then(s=>{if(s.files.length){setFiles(s.files);if(s.meta?.analysis){setAnalysis(s.meta.analysis as BillAnalysisWithName);setStatus("done");}}}).catch(()=>undefined);},[]);
  const add=(incoming:File[])=>{const valid=incoming.filter(accepted).filter(f=>f.size<=10*1024*1024);const next=[...files,...valid].filter((f,i,a)=>i===a.findIndex(x=>x.name===f.name&&x.size===f.size&&x.lastModified===f.lastModified)).slice(0,12);setFiles(next);setAnalysis(null);setStatus(next.length?"ready":"idle");void saveBillSession(next,null);};
  const analyze=async()=>{if(!files.length)return;setStatus("analyzing");setError("");try{const rs:BillAnalysisResult[]=[];for(const f of files){try{rs.push(await timeout(analyzeBill(f),150000));}catch{}}if(!rs.length)throw new Error("NO_DATA");const m=merge(rs);const repairs=await Promise.all(files.map(f=>repairBillPrices(f)));const wp=repairs.map(x=>x.workPriceCtPerKwh).filter((x):x is number=>typeof x==="number"&&x>=5&&x<=100);const bp=repairs.map(x=>x.basePriceEurPerYear).filter((x):x is number=>typeof x==="number"&&x>=10&&x<=10000);if(wp.length)m.workPriceCtPerKwh={value:Math.max(...wp),confidence:"high",source:"document"};if(bp.length)m.basePriceEurPerYear={value:Math.max(...bp),confidence:"high",source:"document"};const a:BillAnalysisWithName={...m,firstName:{value:null,confidence:"unknown",source:"not_detected"},lastName:{value:null,confidence:"unknown",source:"not_detected"}};setAnalysis(a);setStatus("done");applyData(a);await saveBillSession(files,a);void timeout(analyzeBillNames(files),12000).then(n=>{const x={...a,firstName:{value:n.firstName,confidence:n.confidence,source:n.firstName?"document":"not_detected"},lastName:{value:n.lastName,confidence:n.confidence,source:n.lastName?"document":"not_detected"}};setAnalysis(x);void saveBillSession(files,x);}).catch(()=>undefined);}catch{setStatus("ready");setError("Die Rechnung konnte nicht ausgelesen werden. Bitte eine PDF oder ein scharfes Foto hochladen.");}};
- const cards=analysis?labels.map(([key,label])=>({key,label,value:display(key,analysis[key].value)})):[];const work=analysis?display("workPriceCtPerKwh",analysis.workPriceCtPerKwh.value):"Nicht erkannt";const base=analysis?display("basePriceEurPerYear",analysis.basePriceEurPerYear.value):"Nicht erkannt";const name=analysis?.firstName?.value&&analysis?.lastName?.value?`${analysis.firstName.value} ${analysis.lastName.value}`:"Nicht sicher erkannt";
- return <div className="mt-4 rounded-2xl border border-white/10 bg-white/[.035] p-4 text-left"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#19b7ff]/10 text-xl text-[#66d5ff]">↑</div><div><p className="font-bold text-white">Rechnung hochladen</p><p className="mt-1 text-xs text-slate-400">PDF, JPG, PNG oder WEBP · bis zu 12 Dateien</p></div></div><div className="mt-3 flex gap-2"><button type="button" onClick={()=>inputRef.current?.click()} disabled={status==="analyzing"} className="rounded-xl border border-[#19b7ff]/35 bg-[#19b7ff]/10 px-4 py-2.5 text-sm font-bold text-[#8ce4ff]">{files.length?"Weitere Seite":"Rechnung auswählen"}</button>{files.length>0&&<button type="button" onClick={analyze} disabled={status==="analyzing"} className="rounded-xl bg-[#19b7ff] px-4 py-2.5 text-sm font-bold text-[#03101c]">{status==="analyzing"?"Wird geprüft …":"Rechnung prüfen"}</button>}</div><input ref={inputRef} type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={e=>{add(Array.from(e.target.files||[]));e.currentTarget.value="";}}/>{error&&<p className="mt-2 text-xs text-red-300">{error}</p>}{analysis&&<div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#08131f]"><div className="border-b border-white/10 bg-white/[.025] px-4 py-4"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Tarifcheck</p><div className="mt-1 flex items-center justify-between"><p className="text-lg font-bold text-white">Deine Rechnungsdaten</p><span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-300">ERKANNT</span></div></div><div className="grid grid-cols-2 gap-px bg-white/10"><div className="bg-[#0b1724] px-3 py-4"><p className="text-[9px] font-bold uppercase tracking-[.14em] text-slate-500">Arbeitspreis</p><p className="mt-1 text-lg font-bold text-white">{work}</p></div><div className="bg-[#0b1724] px-3 py-4"><p className="text-[9px] font-bold uppercase tracking-[.14em] text-slate-500">Grundpreis</p><p className="mt-1 text-lg font-bold text-white">{base}</p></div></div><div className="grid grid-cols-2 gap-px bg-white/10">{cards.filter(c=>c.key!=="workPriceCtPerKwh"&&c.key!=="basePriceEurPerYear").map(c=><div key={String(c.key)} className="min-w-0 bg-[#08131f] px-3 py-3"><p className="text-[9px] font-bold uppercase tracking-[.12em] text-slate-500">{c.label}</p><p className={`mt-1 break-words text-sm font-semibold ${c.value==="Nicht erkannt"?"text-slate-500":"text-slate-200"}`}>{c.value}</p></div>)}</div><div className="border-t border-white/10 bg-white/[.02] px-4 py-3"><p className="text-[9px] font-bold uppercase tracking-[.15em] text-slate-500">Rechnungsempfänger</p><p className="mt-1 text-sm font-semibold text-slate-200">{name}</p></div>{onContinue&&<div className="border-t border-white/10 p-4"><button type="button" onClick={onContinue} className="w-full rounded-xl bg-[#19b7ff] px-4 py-3 text-sm font-bold text-[#03101c]">Mit diesen Daten weiter</button></div>}</div>}</div>;
+ const work=analysis?display("workPriceCtPerKwh",analysis.workPriceCtPerKwh.value):"Nicht erkannt";const base=analysis?display("basePriceEurPerYear",analysis.basePriceEurPerYear.value):"Nicht erkannt";const consumption=analysis?display("annualConsumptionKwh",analysis.annualConsumptionKwh.value):"Nicht erkannt";const monthly=analysis?display("monthlyPaymentEur",analysis.monthlyPaymentEur.value):"Nicht erkannt";const billing=analysis?display("billingPeriod",analysis.billingPeriod.value):"Nicht erkannt";const tariff=analysis?display("tariffName",analysis.tariffName.value):"Nicht erkannt";const provider=analysis?display("provider",analysis.provider.value):"Rechnung";const energy=analysis?display("energyType",analysis.energyType.value):"Stromrechnung";
+ return <div className="mt-4 space-y-4 text-left">
+  <div className="rounded-[28px] border border-[#143b58] bg-[#061a2d]/95 p-5 shadow-[0_18px_55px_rgba(0,0,0,.22)] sm:p-7">
+   <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-w-0 items-center gap-4">
+     <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-[#082b48] text-[#63d5ff] ring-1 ring-[#164866]"><Icon name="file"/></div>
+     <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-[.25em] text-[#9aaec7]">Rechnungsanalyse</p><p className="mt-1 truncate text-[28px] font-extrabold tracking-[-.03em] text-white">{provider}</p><p className="mt-0.5 text-base text-[#b7c5d8]">{energy} erkannt</p></div>
+    </div>
+    <div className="flex shrink-0 items-center gap-3 rounded-[18px] border border-[#087d70] bg-[#06362f]/75 px-4 py-3 text-[#4ff0c5] shadow-[inset_0_1px_0_rgba(255,255,255,.03)]">
+     <Icon name="check"/><span className="text-sm font-bold leading-tight">Rechnung<br/>erfolgreich ausgelesen</span>
+    </div>
+   </div>
+  </div>
+
+  <div className="rounded-[28px] border border-[#143b58] bg-[#061a2d]/95 p-5 shadow-[0_18px_55px_rgba(0,0,0,.2)] sm:p-7">
+   <div className="mb-5 flex items-center gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#082b48] text-[#63d5ff] ring-1 ring-[#164866]"><Icon name="chart"/></div><div><h3 className="text-[24px] font-extrabold tracking-[-.025em] text-white">Wichtigste Daten</h3><p className="mt-0.5 text-sm text-[#9aabc2] sm:text-base">Die relevanten Informationen aus deiner Rechnung</p></div></div>
+   <div className="grid gap-4 sm:grid-cols-2">
+    <MetricCard icon="bolt" label="Jahresverbrauch" value={consumption}/>
+    <MetricCard icon="coins" label="Arbeitspreis" value={work}/>
+    <MetricCard icon="calendar" label="Grundpreis" value={base}/>
+    <MetricCard icon="wallet" label="Monatlicher Abschlag" value={monthly}/>
+    <MetricCard icon="calendar" label="Abrechnungszeitraum" value={billing} wide/>
+    <MetricCard icon="tag" label="Tarif" value={tariff} wide/>
+   </div>
+  </div>
+
+  <div className="rounded-[28px] border border-[#104d75] bg-[#061a2d]/95 p-5 shadow-[0_18px_55px_rgba(0,0,0,.18)] sm:p-7">
+   <div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#082b48] text-[#63d5ff] ring-1 ring-[#164866]"><Icon name="info"/></div><div><h3 className="text-[18px] font-extrabold text-[#63d5ff]">Hinweis</h3><p className="mt-1 text-sm leading-6 text-[#9aabc2] sm:text-base">Die ausgelesenen Werte können je nach Rechnungstyp leicht variieren. Bitte überprüfe die Angaben zur Sicherheit.</p></div></div>
+  </div>
+
+  <div className="rounded-[24px] border border-white/10 bg-white/[.025] p-4">
+   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold text-white">Rechnung hochladen</p><p className="mt-1 text-xs text-slate-400">PDF, JPG, PNG oder WEBP · bis zu 12 Dateien</p></div><div className="flex gap-2"><button type="button" onClick={()=>inputRef.current?.click()} disabled={status==="analyzing"} className="rounded-xl border border-[#19b7ff]/35 bg-[#19b7ff]/10 px-4 py-2.5 text-sm font-bold text-[#8ce4ff]">{files.length?"Weitere Seite":"Rechnung auswählen"}</button>{files.length>0&&<button type="button" onClick={analyze} disabled={status==="analyzing"} className="rounded-xl bg-[#19b7ff] px-4 py-2.5 text-sm font-bold text-[#03101c]">{status==="analyzing"?"Wird geprüft …":"Rechnung prüfen"}</button>}</div></div>
+   <input ref={inputRef} type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={e=>{add(Array.from(e.target.files||[]));e.currentTarget.value="";}}/>
+   {error&&<p className="mt-2 text-xs text-red-300">{error}</p>}
+   {onContinue&&analysis&&<button type="button" onClick={onContinue} className="mt-3 w-full rounded-xl bg-[#19b7ff] px-4 py-3 text-sm font-bold text-[#03101c]">Mit diesen Daten weiter</button>}
+  </div>
+ </div>;
 }
