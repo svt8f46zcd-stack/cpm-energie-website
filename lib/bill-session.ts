@@ -4,7 +4,7 @@ const DB_NAME = "cpm-bill-session";
 const STORE_NAME = "files";
 const DB_VERSION = 1;
 const META_KEY = "cpm-bill-session-meta";
-export const BILL_ANALYSIS_VERSION = "2026-09-09-final-ocr-v3";
+export const BILL_ANALYSIS_VERSION = "2026-09-09-final-ocr-v4";
 
 export type BillSessionMeta = {
   analysis: BillAnalysisResult | null;
