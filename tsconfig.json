@@ -13,7 +13,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "plugins": [{ "name": "next" }],
-    "paths": { "@/components/BillUpload": ["./components/BillUploadReference"], "@/*": ["./*"] }
+    "paths": { "@/components/BillUpload": ["./components/BillUploadExact"], "@/*": ["./*"] }
   },
   "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]
