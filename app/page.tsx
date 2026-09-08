@@ -16,12 +16,22 @@ export default function Home() {
               <h2 id="analysis-heading" className="mt-3 max-w-2xl text-3xl font-black leading-tight tracking-[-.04em] text-white md:text-5xl">Nicht hunderte Tarife. Erst einmal deine Rechnung verstehen.</h2>
               <p className="mt-5 max-w-xl text-base leading-7 text-slate-400 md:text-lg">Eine aktuelle Rechnung reicht für den ersten Check. Die wichtigen Zahlen werden strukturiert erfasst und verständlich eingeordnet.</p>
             </div>
-            <div className="relative mx-auto w-full max-w-md">
-              <div className="absolute -inset-6 rounded-[2.5rem] bg-[#19b7ff]/5 blur-3xl" />
-              <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1b30]/90 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl">
-                <div className="flex items-center justify-between border-b border-white/10 pb-5"><div><p className="text-xs uppercase tracking-[.18em] text-slate-500">Beispielanalyse</p><p className="mt-1 font-bold text-white">Energierechnung</p></div><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#19b7ff]/10 text-[#66d5ff]">✦</span></div>
-                <div className="space-y-3 pt-5">{[['Jahresverbrauch','3.842 kWh'],['Arbeitspreis','31,4 ct/kWh'],['Grundpreis','168 € / Jahr'],['Jahreskosten','1.374 €']].map(([label,value]) => <div key={label} className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[.025] px-4 py-3"><span className="text-sm text-slate-400">{label}</span><span className="text-sm font-bold text-white">{value}</span></div>)}</div>
-                <p className="mt-4 text-xs text-slate-500">Darstellung dient als Beispiel.</p>
+            <div className="relative mx-auto w-full max-w-xl">
+              <div className="absolute -inset-8 rounded-[3rem] bg-[#19b7ff]/5 blur-3xl" />
+              <div className="relative overflow-hidden rounded-[2rem] border border-[#1b3b58] bg-[#061a2d] p-7 shadow-2xl shadow-black/25 sm:p-9">
+                <div className="flex items-start justify-between gap-5">
+                  <div>
+                    <p className="text-[14px] uppercase tracking-[.28em] text-[#91a4c0]">Beispielanalyse</p>
+                    <h3 className="mt-4 text-[30px] font-extrabold leading-none tracking-[-.035em] text-white sm:text-[34px]">Energierechnung</h3>
+                  </div>
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] bg-[#0b3150] text-[34px] leading-none text-[#67d7ff]">✦</div>
+                </div>
+                <div className="mt-10 border-t border-[#20384e] pt-8">
+                  <div className="space-y-4">
+                    {[['Jahresverbrauch','3.842 kWh'],['Arbeitspreis','31,4 ct/kWh'],['Grundpreis','168 € / Jahr'],['Jahreskosten','1.374 €']].map(([label,value]) => <div key={label} className="flex min-h-[82px] items-center justify-between gap-6 rounded-[28px] border border-[#213d56] bg-[#102238] px-6 py-5 sm:px-8"><span className="text-[20px] font-medium text-[#9aabc3] sm:text-[23px]">{label}</span><span className="text-right text-[22px] font-extrabold tracking-[-.025em] text-white sm:text-[25px]">{value}</span></div>)}
+                  </div>
+                  <p className="mt-6 text-[17px] text-[#758ba8] sm:text-[19px]">Darstellung dient als Beispiel.</p>
+                </div>
               </div>
             </div>
           </div>
