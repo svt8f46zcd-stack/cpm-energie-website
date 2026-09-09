@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Build project site and audit every route and asset
+      - name: Build and create project-site mirror
         run: |
           set -euo pipefail
           rm -rf out
@@ -58,6 +58,29 @@ jobs:
           test -s out/sitemap.xml
           test -s out/robots.txt
 
+          project_site="$(mktemp -d)"
+          cp -a out/. "$project_site/"
+          mkdir -p out/cpm-energie-website
+          cp -a "$project_site"/. out/cpm-energie-website/
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          prefix = "/cpm-energie-website"
+          root = Path("out/cpm-energie-website")
+          for path in root.rglob("*.html"):
+              text = path.read_text(encoding="utf-8")
+              for attr in ("href", "src", "srcSet", "poster", "action"):
+                  text = re.sub(
+                      rf'({attr}=["\'])/(?!/|cpm-energie-website)([^"\']*)',
+                      rf'\1{prefix}/\2',
+                      text,
+                  )
+              text = text.replace("url(/_next/", f"url({prefix}/_next/")
+              path.write_text(text, encoding="utf-8")
+          PY
+
           for route in \
             index.html \
             kontakt/index.html \
@@ -66,53 +89,51 @@ jobs:
             ueber-mich/index.html \
             impressum/index.html \
             datenschutz/index.html; do
-            test -s "out/$route"
+            test -s "out/cpm-energie-website/$route"
           done
+          test -d out/cpm-energie-website/_next
+          test -s out/cpm-energie-website/logo-cpm-energie.svg
+          test -s out/cpm-energie-website/cristiano.svg
+          test -s out/cpm-energie-website/robots.txt
+          test -s out/cpm-energie-website/sitemap.xml
 
           python3 - <<'PY'
           from pathlib import Path
           import re
 
-          root = Path("out")
-          base = "/cpm-energie-website"
-          html_files = sorted(root.rglob("*.html"))
-          assert html_files, "No HTML files generated"
-
+          root = Path("out/cpm-energie-website")
           bad = []
           refs = set()
+          html_files = sorted(root.rglob("*.html"))
           for path in html_files:
               text = path.read_text(encoding="utf-8")
               if 'href="/_next/' in text or 'src="/_next/' in text:
-                  bad.append(f"root-relative Next asset path in {path}")
+                  bad.append(f"unprefixed Next asset in {path}")
               if 'src="/logo-cpm-energie.svg' in text or 'src="/cristiano.svg' in text:
-                  bad.append(f"root-relative public asset path in {path}")
+                  bad.append(f"unprefixed public asset in {path}")
               for value in re.findall(r'(?:href|src|action)=["\']([^"\']+)', text):
-                  if value.startswith(base + "/"):
+                  if value.startswith("/cpm-energie-website/"):
                       clean = value.split("?", 1)[0].split("#", 1)[0]
                       if clean.endswith("/"):
                           continue
                       refs.add(clean)
-
           for ref in sorted(refs):
-              local = root / ref[len(base):].lstrip("/")
+              local = Path("out") / ref.lstrip("/")
               if not local.exists():
-                  bad.append(f"missing generated asset: {ref} -> {local}")
-
+                  bad.append(f"missing mirror asset: {ref}")
           if bad:
               print("\n".join(bad))
               raise SystemExit(1)
-
-          print(f"HTML files audited: {len(html_files)}")
-          print(f"Local project-site references audited: {len(refs)}")
-          print("PROJECT SITE BUILD AUDIT PASSED")
+          print(f"Mirror HTML files audited: {len(html_files)}")
+          print(f"Mirror local references audited: {len(refs)}")
+          print("PROJECT SITE MIRROR BUILD AUDIT PASSED")
           PY
 
           touch out/.nojekyll
+          touch out/cpm-energie-website/.nojekyll
 
-          echo "===== COMPLETE PROJECT SITE TREE ====="
-          find out -print | sort
-          echo "===== ROUTE INDEX FILES ====="
-          find out -type f -name index.html -print | sort
+          echo "===== PROJECT SITE MIRROR TREE ====="
+          find out/cpm-energie-website -print | sort
 
       - name: Diagnose current project-site deployment
         continue-on-error: true
@@ -127,9 +148,7 @@ jobs:
               *) full_url="${url}?cb=${cb}" ;;
             esac
             echo "--- URL=$full_url ---"
-            curl -sS -I --max-time 30 \
-              -H 'Cache-Control: no-cache' \
-              "$full_url" 2>&1 | tr -d '\r' || true
+            curl -sS -I --max-time 30 -H 'Cache-Control: no-cache' "$full_url" 2>&1 | tr -d '\r' || true
             echo
           done <<< "$SITE_URLS"
 
@@ -154,7 +173,6 @@ jobs:
           set -euo pipefail
           echo "===== POST-DEPLOY PROJECT SITE CURL PROOF ====="
           failed=0
-
           for pass in 1 2 3; do
             echo "===== PASS $pass ====="
             while IFS= read -r url; do
@@ -166,9 +184,7 @@ jobs:
               esac
               echo "--- URL=$full_url ---"
               headers="$(mktemp)"
-              if ! curl -sS -I --max-time 30 \
-                -H 'Cache-Control: no-cache' \
-                "$full_url" >"$headers" 2>&1; then
+              if ! curl -sS -I --max-time 30 -H 'Cache-Control: no-cache' "$full_url" >"$headers" 2>&1; then
                 cat "$headers" | tr -d '\r'
                 echo "RESULT=REQUEST_FAILED"
                 failed=1
@@ -178,37 +194,24 @@ jobs:
               cat "$headers" | tr -d '\r'
               status="$(awk 'NR==1 {print $2}' "$headers")"
               echo "RESULT=HTTP_$status"
-              if [ "$status" != "200" ]; then
-                failed=1
-              fi
+              if [ "$status" != "200" ]; then failed=1; fi
               rm -f "$headers"
             done <<< "$SITE_URLS"
           done
 
-          echo "===== VERIFY CRITICAL STATIC ASSETS FROM LIVE HTML ====="
+          echo "===== VERIFY LIVE CSS, JS AND PUBLIC ASSETS ====="
           html="$(curl -fsSL --max-time 30 -H 'Cache-Control: no-cache' "$SITE_BASE/?cb=$(date +%s%N)")"
-          css_path="$(printf '%s' "$html" | sed -n 's/.*href="\([^\"]*\.css\)".*/\1/p' | head -1)"
-          js_path="$(printf '%s' "$html" | sed -n 's/.*src="\([^\"]*\.js\)".*/\1/p' | head -1)"
-
-          if [ -z "$css_path" ] || [ -z "$js_path" ]; then
-            echo "Could not extract live CSS/JS references"
-            failed=1
-          else
-            for path in "$css_path" "$js_path" "/cpm-energie-website/logo-cpm-energie.svg" "/cpm-energie-website/cristiano.svg" "/cpm-energie-website/robots.txt" "/cpm-energie-website/sitemap.xml"; do
-              url="https://svt8f46zcd-stack.github.io${path}"
-              echo "--- ASSET=$url ---"
-              status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -H 'Cache-Control: no-cache' "$url?cb=$(date +%s%N)")"
-              echo "RESULT=HTTP_$status"
-              if [ "$status" != "200" ]; then
-                echo "ASSET CHECK FAILED: $url"
-                failed=1
-              fi
-            done
-          fi
+          mapfile -t assets < <(printf '%s' "$html" | grep -oE '(/cpm-energie-website/[^" ]+\.(css|js|svg))' | sort -u)
+          assets+=("/cpm-energie-website/logo-cpm-energie.svg" "/cpm-energie-website/cristiano.svg" "/cpm-energie-website/robots.txt" "/cpm-energie-website/sitemap.xml")
+          for path in "${assets[@]}"; do
+            url="https://svt8f46zcd-stack.github.io${path}"
+            status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -H 'Cache-Control: no-cache' "$url?cb=$(date +%s%N)")"
+            echo "ASSET=$url RESULT=HTTP_$status"
+            if [ "$status" != "200" ]; then failed=1; fi
+          done
 
           if [ "$failed" -ne 0 ]; then
             echo "PROJECT SITE VERIFICATION FAILED"
             exit 1
           fi
-
-          echo "PROJECT SITE VERIFICATION PASSED: all routes returned HTTP 200 in all 3 passes and live CSS/JS/public assets are reachable."
+          echo "PROJECT SITE VERIFICATION PASSED"
