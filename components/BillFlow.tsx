@@ -1,25 +1,35 @@
-const STEPS = [
-  { number: "01", title: "Rechnung", text: "Deine aktuelle Abrechnung" },
-  { number: "02", title: "Analyse", text: "Tarifdaten strukturiert geprüft" },
-  { number: "03", title: "Ergebnis", text: "Klar und verständlich erklärt" },
+const FLOW_ITEMS = [
+  { number: "01", title: "Rechnung", text: "Deine Abrechnung" },
+  { number: "02", title: "Analyse", text: "Tarifdaten geprüft" },
+  { number: "03", title: "Ergebnis", text: "Klar verständlich" },
 ] as const;
 
 export function BillFlow() {
   return (
-    <section className="container py-20 md:py-28" aria-labelledby="flow-heading">
-      <div className="mx-auto max-w-3xl text-center">
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-[#66d5ff]">Von der Rechnung zur Klarheit</p>
-        <h2 id="flow-heading" className="mt-3 text-3xl font-black tracking-[-.04em] text-white md:text-5xl">Einfach hochladen. Wir machen die Zahlen verständlich.</h2>
-      </div>
-      <div className="mx-auto mt-12 grid max-w-5xl gap-4 md:grid-cols-3">
-        {STEPS.map((step, index) => (
-          <div key={step.number} className="relative rounded-[1.5rem] border border-white/10 bg-white/[.035] p-6 text-center">
-            <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[#19b7ff]/30 bg-[#19b7ff]/10 text-sm font-black text-[#66d5ff]">{step.number}</span>
-            <h3 className="mt-5 text-xl font-black text-white">{step.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">{step.text}</p>
-            {index < STEPS.length - 1 && <span className="absolute -right-3 top-1/2 hidden text-[#19b7ff]/60 md:block" aria-hidden="true">→</span>}
+    <section className="border-y border-white/10 bg-[#06111d]" aria-labelledby="flow-heading">
+      <div className="container py-16 md:py-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="text-xs font-bold uppercase tracking-[.22em] text-[#66d5ff]">Dein Weg zur Klarheit</p>
+          <h2 id="flow-heading" className="mt-3 text-3xl font-black tracking-[-.04em] text-white md:text-5xl">Rechnung → Analyse → Ergebnis</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-400 md:text-lg">Ein klarer Prozess ohne Tarifdschungel.</p>
+        </div>
+
+        <div className="mx-auto mt-12 grid max-w-5xl items-center gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr]">
+          <div className="flow-card flow-card-one">
+            <span className="flow-icon">{FLOW_ITEMS[0].number}</span>
+            <span><strong>{FLOW_ITEMS[0].title}</strong><small>{FLOW_ITEMS[0].text}</small></span>
           </div>
-        ))}
+          <span className="flow-arrow" aria-hidden="true">→</span>
+          <div className="flow-card flow-card-two">
+            <span className="flow-icon">{FLOW_ITEMS[1].number}</span>
+            <span><strong>{FLOW_ITEMS[1].title}</strong><small>{FLOW_ITEMS[1].text}</small></span>
+          </div>
+          <span className="flow-arrow" aria-hidden="true">→</span>
+          <div className="flow-card flow-card-three">
+            <span className="flow-icon">{FLOW_ITEMS[2].number}</span>
+            <span><strong>{FLOW_ITEMS[2].title}</strong><small>{FLOW_ITEMS[2].text}</small></span>
+          </div>
+        </div>
       </div>
     </section>
   );
