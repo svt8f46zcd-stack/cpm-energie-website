@@ -1,16 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+const BASE = "/cpm-energie-website";
 const links = [
-  ["Startseite", "/"],
-  ["Ersparnisrechner", "/ersparnisrechner"],
-  ["So funktioniert's", "/so-funktionierts"],
-  ["Über mich", "/ueber-mich"],
-];
+  ["Startseite", `${BASE}/`],
+  ["Ersparnisrechner", `${BASE}/ersparnisrechner/`],
+  ["So funktioniert's", `${BASE}/so-funktionierts/`],
+  ["Über mich", `${BASE}/ueber-mich/`],
+] as const;
 
-const LOGO_SRC = "/cpm-energie-website/logo-cpm-energie.svg?v=20260910-2";
+const LOGO_SRC = `${BASE}/logo-cpm-energie.svg?v=20260910-3`;
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -18,7 +18,7 @@ export function Header() {
   return (
     <header className="site-header">
       <div className="site-header-inner container">
-        <Link href="/" aria-label="CPM Energie Startseite" className="site-header-logo">
+        <a href={`${BASE}/`} aria-label="CPM Energie Startseite" className="site-header-logo">
           <img
             src={LOGO_SRC}
             alt="CPM Energie – Mehr Möglichkeiten für Morgen"
@@ -26,13 +26,13 @@ export function Header() {
             height={475}
             draggable={false}
           />
-        </Link>
+        </a>
 
         <nav className="site-header-nav" aria-label="Hauptnavigation">
           {links.map(([label, href]) => (
-            <Link key={href} href={href}>{label}</Link>
+            <a key={href} href={href}>{label}</a>
           ))}
-          <Link href="/kontakt" className="site-header-cta">Kostenlos prüfen</Link>
+          <a href={`${BASE}/kontakt/`} className="site-header-cta">Kostenlos prüfen</a>
         </nav>
 
         <button
@@ -49,9 +49,9 @@ export function Header() {
       {open && (
         <nav className="site-header-mobile-nav container" aria-label="Mobile Navigation">
           {links.map(([label, href]) => (
-            <Link onClick={() => setOpen(false)} key={href} href={href}>{label}</Link>
+            <a onClick={() => setOpen(false)} key={href} href={href}>{label}</a>
           ))}
-          <Link onClick={() => setOpen(false)} href="/kontakt" className="site-header-cta">Kostenlos prüfen</Link>
+          <a onClick={() => setOpen(false)} href={`${BASE}/kontakt/`} className="site-header-cta">Kostenlos prüfen</a>
         </nav>
       )}
     </header>
