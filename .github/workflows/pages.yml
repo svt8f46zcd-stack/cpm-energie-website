@@ -39,11 +39,13 @@ jobs:
           rm -rf out
           npm run build
 
-          # GitHub Pages is a static host. Keep the real homepage as the
-          # fallback so direct visits and stale/deep links do not dead-end.
+          # GitHub Pages project-site fallback: always publish a real root
+          # index and a homepage fallback for direct/deep URL requests.
           test -s out/index.html
           cp out/index.html out/404.html
+          test -s out/index.html
           test -s out/404.html
+          test -f out/.nojekyll || touch out/.nojekyll
 
           test -f out/ersparnisrechner/index.html
           test -f out/kontakt/index.html
@@ -53,8 +55,7 @@ jobs:
           test -f out/so-funktionierts/index.html
           test -f out/ueber-mich/index.html
 
-          touch out/.nojekyll
-          echo "Static export verified: $(find out -type f | wc -l) files"
+          echo "GitHub Pages artifact verified: $(find out -type f | wc -l) files"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
