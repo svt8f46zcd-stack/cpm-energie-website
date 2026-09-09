@@ -1,5 +1,15 @@
 import Link from "next/link";
 
 export function CTASection() {
-  return <section className="container pb-24"><div className="overflow-hidden rounded-[2rem] border border-[#19b7ff]/25 bg-gradient-to-br from-[#0b2944] to-[#081426] p-8 md:p-14"><div className="max-w-2xl"><p className="text-sm font-bold uppercase tracking-[.2em] text-[#19b7ff]">Tarif prüfen</p><h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Zahlst du mehr für Strom oder Gas als nötig?</h2><p className="mt-5 text-lg leading-8 text-slate-300">Schick mir deine aktuelle Abrechnung. Ich prüfe die wichtigen Tarifdaten und zeige dir verständlich, ob sich ein Wechsel für dich lohnen kann.</p><Link href="/ersparnisrechner" className="mt-8 inline-flex rounded-full bg-[#19b7ff] px-7 py-4 font-bold text-[#03101c] hover:bg-white">Rechnung jetzt prüfen</Link><p className="mt-3 text-xs text-slate-400">Kostenlos, unverbindlich und ohne Wechselzwang.</p></div></div></section>;
+  return (
+    <section className="container py-20 md:py-28" aria-labelledby="final-cta-heading">
+      <div className="overflow-hidden rounded-[2rem] border border-[#19b7ff]/25 bg-gradient-to-br from-[#0b2944] to-[#081426] p-8 text-center md:p-14">
+        <p className="text-xs font-bold uppercase tracking-[.22em] text-[#66d5ff]">CPM Energie</p>
+        <h2 id="final-cta-heading" className="mt-3 text-3xl font-black tracking-[-.04em] text-white md:text-5xl">Bereit für Klarheit?</h2>
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-300 md:text-lg">Lade deine aktuelle Rechnung hoch und erfahre, welche Tarifdaten darin stecken.</p>
+        <Link href="#rechnung-pruefen" className="mt-8 inline-flex rounded-full bg-[#19b7ff] px-7 py-4 font-bold text-[#03101c] transition hover:bg-white">Rechnung kostenlos prüfen</Link>
+        <p className="mt-3 text-xs font-semibold text-slate-400">Kostenlos · unverbindlich · keine Wechselpflicht</p>
+      </div>
+    </section>
+  );
 }
