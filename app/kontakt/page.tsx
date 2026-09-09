@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ContactForm } from "@/components/ContactForm";
+import { ContactFormStatic } from "@/components/ContactFormStatic";
 
 export const metadata = { title: "Kontakt" };
 
@@ -14,12 +14,11 @@ export default function KontaktPage() {
 
       <div className="mx-auto mt-12 max-w-3xl">
         <Suspense fallback={<div className="glass rounded-[2rem] p-9 text-center text-slate-400">Formular wird geladen…</div>}>
-          <ContactForm />
+          <ContactFormStatic />
         </Suspense>
-        <div className="mt-5 rounded-2xl border border-[#25D366]/20 bg-[#25D366]/5 p-5 text-center">
-          <p className="text-sm font-bold text-white">Lieber direkt schreiben?</p>
-          <p className="mt-1 text-sm text-slate-400">Deine WhatsApp Nummer wird nach Hinterlegung direkt mit diesem Button verbunden.</p>
-          <span className="mt-4 inline-flex cursor-not-allowed rounded-full border border-white/10 px-6 py-3 text-sm font-bold text-slate-500">WhatsApp Kontakt</span>
+        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.025] p-5 text-center">
+          <p className="text-sm font-bold text-white">Direkter Kontakt</p>
+          <p className="mt-1 text-sm text-slate-400">WhatsApp wird hier aktiviert, sobald die Geschäftsnummer hinterlegt ist.</p>
         </div>
       </div>
     </section>
