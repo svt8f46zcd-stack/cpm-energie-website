@@ -1,12 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 const SUBMIT_URL = "https://formsubmit.co/ajax/cristiano02moreira@gmail.com";
 
 export function ContactFormStatic() {
-  const params = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -43,22 +41,22 @@ export function ContactFormStatic() {
   return (
     <form onSubmit={submit} className="glass rounded-[2rem] p-6 md:p-9">
       <div className="grid gap-5 md:grid-cols-2">
-        <Field name="name" label="Name" required defaultValue={params.get("name") || ""} />
+        <Field name="name" label="Name" required />
         <Field name="email" label="E-Mail" type="email" required />
         <Field name="phone" label="Telefon" />
-        <label className="block text-sm font-semibold text-slate-300">Kundentyp<select name="customerType" defaultValue={params.get("kundentyp") === "business" ? "Gewerbekunde" : "Privatkunde"} className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b1b30] p-4 outline-none focus:border-[#19b7ff]"><option>Privatkunde</option><option>Gewerbekunde</option></select></label>
+        <label className="block text-sm font-semibold text-slate-300">Kundentyp<select name="customerType" defaultValue="Privatkunde" className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b1b30] p-4 outline-none focus:border-[#19b7ff]"><option>Privatkunde</option><option>Gewerbekunde</option></select></label>
       </div>
 
       <div className="mt-7 rounded-2xl border border-[#19b7ff]/20 bg-[#19b7ff]/5 p-5">
         <p className="text-sm font-bold text-[#66d5ff]">Ihre Adresse</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Field name="postalCode" label="PLZ" required defaultValue={params.get("plz") || ""} />
-          <Field name="city" label="Ort" required defaultValue={params.get("ort") || ""} />
-          <Field name="street" label="Straße" required defaultValue={params.get("strasse") || ""} />
-          <Field name="houseNumber" label="Hausnummer" required defaultValue={params.get("hausnummer") || ""} />
-          <Field name="provider" label="Aktueller Anbieter" defaultValue={params.get("anbieter") || ""} />
-          <Field name="strom" label="Stromverbrauch pro Jahr" defaultValue={params.get("strom") || ""} placeholder="z. B. 3.500 kWh" />
-          <Field name="gas" label="Gasverbrauch pro Jahr" defaultValue={params.get("gas") || ""} placeholder="z. B. 12.000 kWh" />
+          <Field name="postalCode" label="PLZ" required />
+          <Field name="city" label="Ort" required />
+          <Field name="street" label="Straße" required />
+          <Field name="houseNumber" label="Hausnummer" required />
+          <Field name="provider" label="Aktueller Anbieter" />
+          <Field name="strom" label="Stromverbrauch pro Jahr" placeholder="z. B. 3.500 kWh" />
+          <Field name="gas" label="Gasverbrauch pro Jahr" placeholder="z. B. 12.000 kWh" />
         </div>
       </div>
 
