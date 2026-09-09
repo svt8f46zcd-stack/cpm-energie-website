@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { CTASection } from "@/components/CTASection";
 import { BillFeatures } from "@/components/BillFeatures";
 import { BillFlow } from "@/components/BillFlow";
@@ -5,16 +8,20 @@ import { DesktopHero } from "@/components/DesktopHero";
 import { MobileHero } from "@/components/MobileHero";
 import { SiteFooter } from "@/components/SiteFooter";
 
+type BillFlowState = "idle" | "uploading" | "analyzing" | "success" | "error";
+
 export default function Home() {
+  const [billFlowState, setBillFlowState] = useState<BillFlowState>("idle");
+
   return (
     <>
       <div id="rechnung-pruefen">
-        <div className="desktop-only"><DesktopHero /></div>
-        <div className="mobile-only"><MobileHero /></div>
+        <div className="desktop-only"><DesktopHero onStatusChange={setBillFlowState} /></div>
+        <div className="mobile-only"><MobileHero onStatusChange={setBillFlowState} /></div>
       </div>
 
       <main>
-        <BillFlow />
+        <BillFlow status={billFlowState} />
         <BillFeatures />
 
         <section className="container py-20 md:py-28" aria-labelledby="personal-heading">
