@@ -10,8 +10,8 @@ import { BillDropzone } from "@/components/BillDropzone";
 
 type NameField = { value: string | null; confidence: "high" | "medium" | "unknown"; source: "document" | "not_detected" };
 type BillAnalysisWithName = BillAnalysisResult & { firstName?: NameField; lastName?: NameField };
-
-type BillUploadProps = { onContinue?: () => void };
+type BillUploadState = "idle" | "uploading" | "analyzing" | "success" | "error";
+type BillUploadProps = { onContinue?: () => void; onStatusChange?: (status: BillUploadState) => void };
 
 function setReactInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -69,63 +69,68 @@ function mergeAnalyses(results: BillAnalysisResult[]) {
   return merged;
 }
 
-export default function BillUpload({ onContinue }: BillUploadProps) {
+export default function BillUpload({ onContinue, onStatusChange }: BillUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState<"idle" | "ready" | "analyzing" | "done">("idle");
+  const [status, setStatus] = useState<BillUploadState>("idle");
   const [analysis, setAnalysis] = useState<BillAnalysisWithName | null>(null);
+
+  const updateStatus = (next: BillUploadState) => {
+    setStatus(next);
+    onStatusChange?.(next);
+  };
 
   useEffect(() => {
     let cancelled = false;
     getBillSession().then((session) => {
       if (cancelled || !session.files.length) return;
-      setFiles(session.files);
+      setFiles(session.files.slice(0, 1));
       setAnalysis((session.meta?.analysis as BillAnalysisWithName) || null);
-      setStatus(session.meta?.analysis ? "done" : "ready");
+      updateStatus(session.meta?.analysis ? "success" : "idle");
       if (session.meta?.analysis) applyRecognizedData(session.meta.analysis);
     }).catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
 
   const mergeFiles = (incoming: File[]) => {
-    const valid = incoming.filter(fileAccepted);
-    const oversized = valid.filter((file) => file.size > 10 * 1024 * 1024);
-    if (incoming.some((file) => !fileAccepted(file))) setError("Bitte nur PDF, JPG, PNG oder WEBP auswählen.");
-    else if (oversized.length) setError("Jede Datei darf maximal 10 MB groß sein.");
-    else setError("");
+    const file = incoming[0];
+    if (!file) return;
 
-    const next = [...files, ...valid.filter((file) => file.size <= 10 * 1024 * 1024)];
-    const unique = next.filter((file, index, all) => index === all.findIndex((other) => other.name === file.name && other.size === file.size && other.lastModified === file.lastModified));
-    if (unique.length > 12) {
-      setError("Bitte maximal 12 Dateien gleichzeitig auswählen.");
+    if (!fileAccepted(file)) {
+      setError("Bitte nur PDF, JPG, PNG oder WEBP auswählen.");
+      updateStatus("error");
       return;
     }
-    setFiles(unique);
-    setStatus(unique.length ? "ready" : "idle");
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Die Datei darf maximal 10 MB groß sein. Bitte wähle eine kleinere PDF oder ein klares Foto.");
+      updateStatus("error");
+      return;
+    }
+
+    setError("");
+    setFiles([file]);
     setAnalysis(null);
-    void saveBillSession(unique, null).catch(() => undefined);
+    updateStatus("uploading");
+    void saveBillSession([file], null)
+      .then(() => updateStatus("idle"))
+      .catch(() => updateStatus("idle"));
   };
 
-  const removeFile = (index: number) => {
-    const next = files.filter((_, fileIndex) => fileIndex !== index);
-    setFiles(next);
-    setAnalysis(null);
-    setStatus(next.length ? "ready" : "idle");
-    void saveBillSession(next, null).catch(() => undefined);
-  };
-
-  const removeAllFiles = () => {
+  const removeFile = () => {
     setFiles([]);
     setAnalysis(null);
     setError("");
-    setStatus("idle");
+    updateStatus("idle");
     void saveBillSession([], null).catch(() => undefined);
   };
+
+  const removeAllFiles = removeFile;
 
   const analyzeFiles = async () => {
     if (!files.length || status === "analyzing") return;
     setError("");
-    setStatus("analyzing");
+    updateStatus("analyzing");
 
     try {
       const results: BillAnalysisResult[] = [];
@@ -144,7 +149,7 @@ export default function BillUpload({ onContinue }: BillUploadProps) {
         lastName: { value: null, confidence: "unknown", source: "not_detected" },
       };
       setAnalysis(initial);
-      setStatus("done");
+      updateStatus("success");
       applyRecognizedData(initial);
       await saveBillSession(files, initial);
 
@@ -158,15 +163,15 @@ export default function BillUpload({ onContinue }: BillUploadProps) {
         void saveBillSession(files, withName).catch(() => undefined);
       }).catch(() => undefined);
     } catch (err) {
-      setStatus("ready");
-      setError(err instanceof Error && err.message === "OCR_LIBRARY_LOAD_FAILED" ? "Die Rechnungserkennung konnte nicht geladen werden. Bitte erneut versuchen." : "Die Rechnung konnte nicht ausgelesen werden. Bitte die Seite möglichst gerade und vollständig fotografieren oder eine PDF hochladen.");
+      setError(err instanceof Error && err.message === "OCR_LIBRARY_LOAD_FAILED" ? "Die Rechnungserkennung konnte nicht geladen werden. Bitte erneut versuchen." : "Die Rechnung konnte nicht ausgelesen werden. Bitte lade ein klares Foto oder eine PDF hoch.");
+      updateStatus("error");
     }
   };
 
   return (
     <div className="mt-4 text-left">
       <BillDropzone files={files} disabled={status === "analyzing"} error={error} onFiles={mergeFiles} onRemove={removeFile} onRemoveAll={removeAllFiles} />
-      <BillAnalysisStatus status={status} onAnalyze={analyzeFiles} disabled={status === "analyzing"} fileCount={files.length} />
+      <BillAnalysisStatus status={status} onAnalyze={analyzeFiles} disabled={status === "analyzing" || !files.length} fileCount={files.length} error={error} />
       {analysis && <BillAnalysisResultView analysis={analysis} onContinue={onContinue} />}
     </div>
   );
