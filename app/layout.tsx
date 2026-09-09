@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     "strom sparen",
     "gas sparen",
     "stromtarif prüfen",
-    "gast arif prüfen",
+    "gastarif prüfen",
   ],
   robots: {
     index: true,
