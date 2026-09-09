@@ -14,6 +14,18 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  SITE_URLS: |
+    https://cpm-energie.de/
+    https://cpm-energie.de/kontakt/
+    https://cpm-energie.de/ersparnisrechner/
+    https://cpm-energie.de/so-funktionierts/
+    https://cpm-energie.de/ueber-mich/
+    https://cpm-energie.de/impressum/
+    https://cpm-energie.de/datenschutz/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/kontakt/
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,45 +45,89 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Build static site
+      - name: Build static site and verify physical route files
         run: |
-          set -e
+          set -euo pipefail
           rm -rf out
           npm run build
 
           test -s out/index.html
 
-          # GitHub Pages project sites can resolve both /route and /route/.
-          # Publish both forms so direct navigation never depends on a redirect.
-          for dir in out/*/; do
-            route="${dir%/}"
-            name="$(basename "$route")"
-            if [ -f "$route/index.html" ] && [ "$name" != "_next" ]; then
-              cp "$route/index.html" "out/$name.html"
-            fi
+          # The same Pages deployment is exposed through the custom domain and
+          # through the repository URL. Keep a root variant for cpm-energie.de
+          # and create a prefixed mirror for github.io/cpm-energie-website/.
+          project_site="$(mktemp -d)"
+          cp -a out/. "$project_site/"
+          mkdir -p out/cpm-energie-website
+          cp -a "$project_site"/. out/cpm-energie-website/
+
+          python3 - <<'PY'
+          from pathlib import Path
+          prefix = "/cpm-energie-website"
+          root = Path("out/cpm-energie-website")
+          for path in root.rglob("*.html"):
+              text = path.read_text(encoding="utf-8")
+              text = text.replace('href="/', f'href="{prefix}/')
+              text = text.replace('src="/', f'src="{prefix}/')
+              text = text.replace('action="/', f'action="{prefix}/')
+              path.write_text(text, encoding="utf-8")
+          PY
+
+          # Root/custom-domain routes.
+          for route in \
+            index.html \
+            kontakt/index.html \
+            ersparnisrechner/index.html \
+            so-funktionierts/index.html \
+            ueber-mich/index.html \
+            impressum/index.html \
+            datenschutz/index.html; do
+            test -s "out/$route"
           done
 
-          # Keep a root fallback for unknown/deep requests.
-          cp out/index.html out/404.html
+          # Project-site mirror routes.
+          for route in \
+            index.html \
+            kontakt/index.html \
+            ersparnisrechner/index.html \
+            so-funktionierts/index.html \
+            ueber-mich/index.html \
+            impressum/index.html \
+            datenschutz/index.html; do
+            test -s "out/cpm-energie-website/$route"
+          done
+
           touch out/.nojekyll
-
+          touch out/cpm-energie-website/.nojekyll
           test -s out/index.html
-          test -s out/404.html
-          test -f out/ersparnisrechner/index.html
-          test -f out/ersparnisrechner.html
-          test -f out/kontakt/index.html
-          test -f out/kontakt.html
-          test -f out/kontakt/rechnung/index.html
-          test -f out/impressum/index.html
-          test -f out/impressum.html
-          test -f out/datenschutz/index.html
-          test -f out/datenschutz.html
-          test -f out/so-funktionierts/index.html
-          test -f out/so-funktionierts.html
-          test -f out/ueber-mich/index.html
-          test -f out/ueber-mich.html
+          test -s out/cpm-energie-website/index.html
 
-          echo "GitHub Pages artifact verified: $(find out -type f | wc -l) files"
+          echo "===== COMPLETE DEPLOYMENT TREE ====="
+          find out -print | sort
+          echo "===== ROUTE INDEX FILES ====="
+          find out -type f -name index.html -print | sort
+          echo "===== INDEX COUNTS ====="
+          printf 'root index.html count: '
+          find out -maxdepth 1 -type f -name index.html | wc -l
+          printf 'route index.html count: '
+          find out -type f -name index.html | wc -l
+
+      - name: Diagnose current live deployment before replacing it
+        continue-on-error: true
+        run: |
+          set +e
+          echo "===== PRE-DEPLOY LIVE DIAGNOSTIC ====="
+          while IFS= read -r url; do
+            [ -z "$url" ] && continue
+            for pass in 1 2 3; do
+              cb="$(date +%s%N)-$RANDOM"
+              echo "--- PASS=$pass URL=$url?cb=$cb ---"
+              curl -sS -I --max-time 30 \
+                -H 'Cache-Control: no-cache' \
+                "$url?cb=$cb" 2>&1 | tr -d '\r' || true
+              echo
+            done
+          done <<< "$SITE_URLS"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
@@ -88,3 +144,41 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify live URLs after deployment
+        run: |
+          set -euo pipefail
+          echo "===== POST-DEPLOY CURL PROOF ====="
+          failed=0
+          for pass in 1 2 3; do
+            echo "===== PASS $pass ====="
+            while IFS= read -r url; do
+              [ -z "$url" ] && continue
+              cb="$(date +%s%N)-$RANDOM"
+              echo "--- URL=$url?cb=$cb ---"
+              headers="$(mktemp)"
+              if ! curl -sS -I --max-time 30 \
+                -H 'Cache-Control: no-cache' \
+                "$url?cb=$cb" >"$headers" 2>&1; then
+                cat "$headers" | tr -d '\r'
+                echo "RESULT=REQUEST_FAILED"
+                failed=1
+                rm -f "$headers"
+                continue
+              fi
+              cat "$headers" | tr -d '\r'
+              status="$(awk 'NR==1 {print $2}' "$headers")"
+              echo "RESULT=HTTP_$status"
+              if [ "$status" != "200" ]; then
+                failed=1
+              fi
+              rm -f "$headers"
+            done <<< "$SITE_URLS"
+          done
+
+          if [ "$failed" -ne 0 ]; then
+            echo "LIVE URL VERIFICATION FAILED"
+            exit 1
+          fi
+
+          echo "LIVE URL VERIFICATION PASSED: all URLs returned HTTP 200 in all 3 passes."
