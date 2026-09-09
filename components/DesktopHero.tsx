@@ -2,9 +2,12 @@
 
 import BillUpload from "@/components/BillUpload";
 
+type BillFlowState = "idle" | "uploading" | "analyzing" | "success" | "error";
+type DesktopHeroProps = { onStatusChange?: (status: BillFlowState) => void };
+
 const BILL_CONTACT_PATH = "/cpm-energie-website/kontakt/rechnung/";
 
-export function DesktopHero() {
+export function DesktopHero({ onStatusChange }: DesktopHeroProps) {
   return (
     <section className="relative isolate overflow-hidden border-b border-white/10 bg-[#020914]" aria-labelledby="hero-heading">
       <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_72%_35%,rgba(25,183,255,.16),transparent_32%),linear-gradient(135deg,#020914_0%,#06182b_55%,#020914_100%)]" />
@@ -20,7 +23,7 @@ export function DesktopHero() {
           </p>
 
           <div className="mt-8 max-w-2xl rounded-[1.75rem] border border-white/10 bg-[#06111dcc] p-5 shadow-2xl shadow-black/30 backdrop-blur-xl">
-            <BillUpload onContinue={() => window.location.assign(BILL_CONTACT_PATH)} />
+            <BillUpload onStatusChange={onStatusChange} onContinue={() => window.location.assign(BILL_CONTACT_PATH)} />
             <p className="mt-3 text-center text-xs leading-5 text-slate-400">Deine Rechnung wird nur für die Prüfung verwendet.</p>
           </div>
 
