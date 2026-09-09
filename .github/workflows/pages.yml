@@ -58,6 +58,14 @@ jobs:
           test -s out/sitemap.xml
           test -s out/robots.txt
 
+          # Stable fallback: copy the exact compiled Tailwind stylesheet to a
+          # predictable URL so the project site cannot render unstyled when a
+          # hashed Next asset is stale or cached incorrectly.
+          compiled_css="$(find out/_next/static/chunks -maxdepth 1 -type f -name '*.css' | sort | head -n 1)"
+          test -n "$compiled_css"
+          cp "$compiled_css" out/site.css
+          test -s out/site.css
+
           project_site="$(mktemp -d)"
           cp -a out/. "$project_site/"
           mkdir -p out/cpm-energie-website
@@ -65,10 +73,14 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+          import os
           import re
 
           prefix = "/cpm-energie-website"
+          version = os.environ.get("GITHUB_SHA", "dev")[:12]
           root = Path("out/cpm-energie-website")
+          fallback = f'<link rel="stylesheet" href="{prefix}/site.css?v={version}" data-cpm-fallback="true"/>'
+
           for path in root.rglob("*.html"):
               text = path.read_text(encoding="utf-8")
               for attr in ("href", "src", "srcSet", "poster", "action"):
@@ -78,6 +90,18 @@ jobs:
                       text,
                   )
               text = text.replace("url(/_next/", f"url({prefix}/_next/")
+              if 'data-cpm-fallback="true"' not in text:
+                  text = text.replace("</head>", fallback + "</head>", 1)
+              path.write_text(text, encoding="utf-8")
+
+          # Keep the root copy usable too. The project-site mirror remains the
+          # only deployment URL asserted by the verification step.
+          for path in Path("out").rglob("*.html"):
+              if str(path).startswith("out/cpm-energie-website/"):
+                  continue
+              text = path.read_text(encoding="utf-8")
+              if 'data-cpm-fallback="true"' not in text:
+                  text = text.replace("</head>", fallback + "</head>", 1)
               path.write_text(text, encoding="utf-8")
           PY
 
@@ -92,6 +116,7 @@ jobs:
             test -s "out/cpm-energie-website/$route"
           done
           test -d out/cpm-energie-website/_next
+          test -s out/cpm-energie-website/site.css
           test -s out/cpm-energie-website/logo-cpm-energie.svg
           test -s out/cpm-energie-website/cristiano.svg
           test -s out/cpm-energie-website/robots.txt
@@ -202,7 +227,7 @@ jobs:
           echo "===== VERIFY LIVE CSS, JS AND PUBLIC ASSETS ====="
           html="$(curl -fsSL --max-time 30 -H 'Cache-Control: no-cache' "$SITE_BASE/?cb=$(date +%s%N)")"
           mapfile -t assets < <(printf '%s' "$html" | grep -oE '(/cpm-energie-website/[^" ]+\.(css|js|svg))' | sort -u)
-          assets+=("/cpm-energie-website/logo-cpm-energie.svg" "/cpm-energie-website/cristiano.svg" "/cpm-energie-website/robots.txt" "/cpm-energie-website/sitemap.xml")
+          assets+=("/cpm-energie-website/site.css" "/cpm-energie-website/logo-cpm-energie.svg" "/cpm-energie-website/cristiano.svg" "/cpm-energie-website/robots.txt" "/cpm-energie-website/sitemap.xml")
           for path in "${assets[@]}"; do
             url="https://svt8f46zcd-stack.github.io${path}"
             status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -H 'Cache-Control: no-cache' "$url?cb=$(date +%s%N)")"
