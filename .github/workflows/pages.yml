@@ -121,10 +121,14 @@ jobs:
           while IFS= read -r url; do
             [ -z "$url" ] && continue
             cb="$(date +%s%N)-$RANDOM"
-            echo "--- URL=$url&cb=$cb ---"
+            case "$url" in
+              *\?*) full_url="${url}&cb=${cb}" ;;
+              *) full_url="${url}?cb=${cb}" ;;
+            esac
+            echo "--- URL=$full_url ---"
             curl -sS -I --max-time 30 \
               -H 'Cache-Control: no-cache' \
-              "$url&cb=$cb" 2>&1 | tr -d '\r' || true
+              "$full_url" 2>&1 | tr -d '\r' || true
             echo
           done <<< "$SITE_URLS"
 
@@ -155,12 +159,10 @@ jobs:
             while IFS= read -r url; do
               [ -z "$url" ] && continue
               cb="$(date +%s%N)-$RANDOM"
-              separator='&'
               case "$url" in
-                *\?*) separator='&' ;;
-                *) separator='?' ;;
+                *\?*) full_url="${url}&cb=${cb}" ;;
+                *) full_url="${url}?cb=${cb}" ;;
               esac
-              full_url="${url}${separator}cb=${cb}"
               echo "--- URL=$full_url ---"
               headers="$(mktemp)"
               if ! curl -sS -I --max-time 30 \
@@ -182,27 +184,30 @@ jobs:
             done <<< "$SITE_URLS"
           done
 
-          echo "===== VERIFY CRITICAL STATIC ASSETS ====="
-          asset_urls=(
-            "$SITE_BASE/_next/static/chunks/"
-            "$SITE_BASE/logo-cpm-energie.svg"
-            "$SITE_BASE/cristiano.svg"
-            "$SITE_BASE/robots.txt"
-            "$SITE_BASE/sitemap.xml"
-          )
-          for url in "${asset_urls[@]}"; do
-            echo "--- ASSET=$url ---"
-            status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -H 'Cache-Control: no-cache' "$url?cb=$(date +%s%N)")"
-            echo "RESULT=HTTP_$status"
-            if [ "$status" != "200" ]; then
-              echo "ASSET CHECK FAILED: $url"
-              failed=1
-            fi
-          done
+          echo "===== VERIFY CRITICAL STATIC ASSETS FROM LIVE HTML ====="
+          html="$(curl -fsSL --max-time 30 -H 'Cache-Control: no-cache' "$SITE_BASE/?cb=$(date +%s%N)")"
+          css_path="$(printf '%s' "$html" | sed -n 's/.*href="\([^\"]*\.css\)".*/\1/p' | head -1)"
+          js_path="$(printf '%s' "$html" | sed -n 's/.*src="\([^\"]*\.js\)".*/\1/p' | head -1)"
+
+          if [ -z "$css_path" ] || [ -z "$js_path" ]; then
+            echo "Could not extract live CSS/JS references"
+            failed=1
+          else
+            for path in "$css_path" "$js_path" "/cpm-energie-website/logo-cpm-energie.svg" "/cpm-energie-website/cristiano.svg" "/cpm-energie-website/robots.txt" "/cpm-energie-website/sitemap.xml"; do
+              url="https://svt8f46zcd-stack.github.io${path}"
+              echo "--- ASSET=$url ---"
+              status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -H 'Cache-Control: no-cache' "$url?cb=$(date +%s%N)")"
+              echo "RESULT=HTTP_$status"
+              if [ "$status" != "200" ]; then
+                echo "ASSET CHECK FAILED: $url"
+                failed=1
+              fi
+            done
+          fi
 
           if [ "$failed" -ne 0 ]; then
             echo "PROJECT SITE VERIFICATION FAILED"
             exit 1
           fi
 
-          echo "PROJECT SITE VERIFICATION PASSED: all routes returned HTTP 200 in all 3 passes and critical assets are reachable."
+          echo "PROJECT SITE VERIFICATION PASSED: all routes returned HTTP 200 in all 3 passes and live CSS/JS/public assets are reachable."
