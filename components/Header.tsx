@@ -10,8 +10,7 @@ const links = [
   ["Über mich", "/ueber-mich"],
 ];
 
-const ASSET_BASE = "/cpm-energie-website";
-const LOGO_SRC = `${ASSET_BASE}/logo-cpm-energie.svg?v=20260905-9`;
+const LOGO_SRC = "/logo-cpm-energie.svg?v=20260910-1";
 
 export function Header() {
   const [open, setOpen] = useState(false);
