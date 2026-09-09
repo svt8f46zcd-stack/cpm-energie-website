@@ -8,8 +8,10 @@ import { SiteFooter } from "@/components/SiteFooter";
 export default function Home() {
   return (
     <>
-      <div id="rechnung-pruefen" className="desktop-only"><DesktopHero /></div>
-      <div className="mobile-only"><MobileHero /></div>
+      <div id="rechnung-pruefen">
+        <div className="desktop-only"><DesktopHero /></div>
+        <div className="mobile-only"><MobileHero /></div>
+      </div>
 
       <main>
         <BillFlow />
