@@ -1,7 +1,5 @@
 "use client";
 
-import { useRef } from "react";
-
 type BillDropzoneProps = {
   files: File[];
   disabled?: boolean;
@@ -14,8 +12,6 @@ type BillDropzoneProps = {
 const ACCEPT = "application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp";
 
 export function BillDropzone({ files, disabled = false, error, onFiles, onRemove, onRemoveAll }: BillDropzoneProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[.035] p-4">
       <div className="flex items-start gap-3">
@@ -25,14 +21,12 @@ export function BillDropzone({ files, disabled = false, error, onFiles, onRemove
           <p className="mt-1 text-xs leading-5 text-slate-400">PDF oder Foto genügt. Mehrseitige Rechnungen können ergänzt werden.</p>
         </div>
       </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" disabled={disabled} onClick={() => inputRef.current?.click()} className="rounded-xl border border-[#19b7ff]/35 bg-[#19b7ff]/10 px-4 py-2.5 text-sm font-bold text-[#8ce4ff] disabled:opacity-50">
-          {files.length ? "Weitere Seite hinzufügen" : "Rechnung auswählen"}
-        </button>
-        <input ref={inputRef} type="file" multiple accept={ACCEPT} className="hidden" onChange={(event) => { onFiles(Array.from(event.target.files || [])); event.currentTarget.value = ""; }} />
+      <div className="mt-3">
+        <label className={`inline-flex cursor-pointer rounded-xl bg-[#19b7ff] px-4 py-2.5 text-sm font-bold text-[#03101c] transition hover:bg-white ${disabled ? "pointer-events-none opacity-50" : ""}`}>
+          {files.length ? "Weitere Seite hinzufügen" : "Rechnung kostenlos prüfen"}
+          <input type="file" multiple accept={ACCEPT} disabled={disabled} className="sr-only" onChange={(event) => { onFiles(Array.from(event.target.files || [])); event.currentTarget.value = ""; }} />
+        </label>
       </div>
-
       {files.length > 0 && (
         <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-3">
           <div className="flex items-center justify-between gap-3">
@@ -50,7 +44,6 @@ export function BillDropzone({ files, disabled = false, error, onFiles, onRemove
           </div>
         </div>
       )}
-
       {error && <p className="mt-2 text-xs text-red-300" role="alert">{error}</p>}
     </div>
   );
