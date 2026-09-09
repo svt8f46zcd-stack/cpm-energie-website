@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = "https://cpm-energie.de";
+  const base = "https://svt8f46zcd-stack.github.io/cpm-energie-website";
   return [
     "/",
     "/ersparnisrechner",
@@ -13,7 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/impressum",
     "/datenschutz",
   ].map((path) => ({
-    url: `${base}${path}`,
+    url: `${base}${path}/`,
     changeFrequency: "monthly",
     priority: path === "/" ? 1 : 0.7,
   }));
