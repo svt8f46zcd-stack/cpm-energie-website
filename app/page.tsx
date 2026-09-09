@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { CTASection } from "@/components/CTASection";
 import { BillFeatures } from "@/components/BillFeatures";
@@ -28,7 +29,7 @@ export default function Home() {
           <div className="grid items-center gap-12 md:grid-cols-[.9fr_1.1fr] md:gap-20">
             <div className="mx-auto w-full max-w-[420px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#071321] shadow-2xl shadow-black/30">
               <div className="aspect-[4/5] overflow-hidden bg-[#0b1b30]">
-                <img src="/cpm-energie-website/cristiano.svg" alt="Cristiano Moreira, persönlicher Ansprechpartner von CPM Energie" className="h-full w-full object-cover object-center" loading="lazy" />
+                <Image src="/cristiano.svg" alt="Cristiano Moreira, persönlicher Ansprechpartner von CPM Energie" width={600} height={900} priority={false} className="h-full w-full object-cover object-center" />
               </div>
             </div>
             <div className="max-w-2xl">
