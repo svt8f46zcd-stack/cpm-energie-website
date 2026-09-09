@@ -39,21 +39,37 @@ jobs:
           rm -rf out
           npm run build
 
-          # GitHub Pages project-site fallback: always publish a real root
-          # index and a homepage fallback for direct/deep URL requests.
           test -s out/index.html
+
+          # GitHub Pages project sites can resolve both /route and /route/.
+          # Publish both forms so direct navigation never depends on a redirect.
+          for dir in out/*/; do
+            route="${dir%/}"
+            name="$(basename "$route")"
+            if [ -f "$route/index.html" ] && [ "$name" != "_next" ]; then
+              cp "$route/index.html" "out/$name.html"
+            fi
+          done
+
+          # Keep a root fallback for unknown/deep requests.
           cp out/index.html out/404.html
+          touch out/.nojekyll
+
           test -s out/index.html
           test -s out/404.html
-          test -f out/.nojekyll || touch out/.nojekyll
-
           test -f out/ersparnisrechner/index.html
+          test -f out/ersparnisrechner.html
           test -f out/kontakt/index.html
+          test -f out/kontakt.html
           test -f out/kontakt/rechnung/index.html
           test -f out/impressum/index.html
+          test -f out/impressum.html
           test -f out/datenschutz/index.html
+          test -f out/datenschutz.html
           test -f out/so-funktionierts/index.html
+          test -f out/so-funktionierts.html
           test -f out/ueber-mich/index.html
+          test -f out/ueber-mich.html
 
           echo "GitHub Pages artifact verified: $(find out -type f | wc -l) files"
 
