@@ -35,6 +35,16 @@ export function BillAnalysisResult({ analysis, onSubmitted }: Props) {
           </div>
         ))}
       </div>
+      <div className="mx-4 mb-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[.025] p-3 sm:mx-6 sm:mb-6 sm:p-4">
+        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-[#19b7ff]/30 bg-[#0b1b30] sm:h-20 sm:w-20">
+          <img src="/cpm-energie-website/cristiano.svg" alt="Cristiano Moreira, persönlicher Ansprechpartner von CPM Energie" className="h-full w-full object-cover" loading="lazy" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-white">Digital geprüft. Persönlich erklärt.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">Wenn du möchtest, schaue ich mir deine Tarifdaten persönlich an und erkläre dir, was du daraus machen kannst.</p>
+          <p className="mt-2 text-[11px] font-semibold text-[#66d5ff]">Cristiano · CPM Energie</p>
+        </div>
+      </div>
       <BillRecipient analysis={analysis} onSubmitted={onSubmitted} />
     </div>
   );
