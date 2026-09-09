@@ -3,9 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "export",
   trailingSlash: true,
-  // This deployment is intentionally dedicated to the GitHub Pages
-  // project URL: /cpm-energie-website/.
-  basePath: "/cpm-energie-website",
+  // Build root-relative files, then publish an exact /cpm-energie-website/
+  // mirror for the GitHub Pages project site.
+  basePath: "",
   images: { unoptimized: true },
   typescript: { ignoreBuildErrors: true },
 };
