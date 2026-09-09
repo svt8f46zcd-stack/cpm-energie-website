@@ -2,9 +2,12 @@
 
 import BillUpload from "@/components/BillUpload";
 
+type BillFlowState = "idle" | "uploading" | "analyzing" | "success" | "error";
+type MobileHeroProps = { onStatusChange?: (status: BillFlowState) => void };
+
 const BILL_CONTACT_PATH = "/cpm-energie-website/kontakt/rechnung/";
 
-export function MobileHero() {
+export function MobileHero({ onStatusChange }: MobileHeroProps) {
   return (
     <section className="mobile-hero relative isolate overflow-hidden border-b border-white/10 bg-[#020914]" aria-labelledby="mobile-hero-heading">
       <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_50%_25%,rgba(25,183,255,.17),transparent_36%),linear-gradient(180deg,#06182b_0%,#020914_82%)]" />
@@ -23,7 +26,7 @@ export function MobileHero() {
         <div className="relative mx-auto mt-7 w-full max-w-[520px]">
           <div className="absolute -inset-4 rounded-[2rem] bg-[#19b7ff]/10 blur-2xl" />
           <div className="relative rounded-[2rem] border border-white/15 bg-[#06111dcc] p-4 shadow-2xl shadow-black/40 backdrop-blur-xl">
-            <BillUpload onContinue={() => window.location.assign(BILL_CONTACT_PATH)} />
+            <BillUpload onStatusChange={onStatusChange} onContinue={() => window.location.assign(BILL_CONTACT_PATH)} />
             <p className="mt-3 text-center text-xs leading-5 text-slate-400">Deine Rechnung wird nur für die Prüfung verwendet.</p>
           </div>
         </div>
