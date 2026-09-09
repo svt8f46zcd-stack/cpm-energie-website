@@ -5,6 +5,6 @@ export const dynamic = "force-static";
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: { userAgent: "*", allow: "/" },
-    sitemap: "https://cpm-energie.de/sitemap.xml",
+    sitemap: "https://svt8f46zcd-stack.github.io/cpm-energie-website/sitemap.xml",
   };
 }
