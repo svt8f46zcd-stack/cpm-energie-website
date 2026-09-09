@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 
+const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
+
 const nextConfig: NextConfig = {
   output: "export",
   trailingSlash: true,
-  basePath: "/cpm-energie-website",
+  basePath: isGitHubPages ? "/cpm-energie-website" : "",
   images: { unoptimized: true },
   typescript: { ignoreBuildErrors: true },
 };
