@@ -74,6 +74,7 @@ jobs:
           import re
 
           root = Path("out")
+          base = "/cpm-energie-website"
           html_files = sorted(root.rglob("*.html"))
           assert html_files, "No HTML files generated"
 
@@ -86,16 +87,16 @@ jobs:
               if 'src="/logo-cpm-energie.svg' in text or 'src="/cristiano.svg' in text:
                   bad.append(f"root-relative public asset path in {path}")
               for value in re.findall(r'(?:href|src|action)=["\']([^"\']+)', text):
-                  if value.startswith("/cpm-energie-website/"):
+                  if value.startswith(base + "/"):
                       clean = value.split("?", 1)[0].split("#", 1)[0]
                       if clean.endswith("/"):
                           continue
                       refs.add(clean)
 
           for ref in sorted(refs):
-              local = root / ref.lstrip("/")
+              local = root / ref[len(base):].lstrip("/")
               if not local.exists():
-                  bad.append(f"missing generated asset: {ref}")
+                  bad.append(f"missing generated asset: {ref} -> {local}")
 
           if bad:
               print("\n".join(bad))
