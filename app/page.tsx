@@ -5,8 +5,7 @@ import { useState } from "react";
 import { CTASection } from "@/components/CTASection";
 import { BillFeatures } from "@/components/BillFeatures";
 import { BillFlow } from "@/components/BillFlow";
-import { DesktopHero } from "@/components/DesktopHero";
-import { MobileHero } from "@/components/MobileHero";
+import { ResponsiveHero } from "@/components/ResponsiveHero";
 import { SiteFooter } from "@/components/SiteFooter";
 
 type BillFlowState = "idle" | "uploading" | "analyzing" | "success" | "error";
@@ -17,8 +16,7 @@ export default function Home() {
   return (
     <>
       <div id="rechnung-pruefen">
-        <div className="desktop-only"><DesktopHero onStatusChange={setBillFlowState} /></div>
-        <div className="mobile-only"><MobileHero onStatusChange={setBillFlowState} /></div>
+        <ResponsiveHero onStatusChange={setBillFlowState} />
       </div>
 
       <main>
