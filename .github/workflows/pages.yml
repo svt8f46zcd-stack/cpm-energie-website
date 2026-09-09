@@ -52,10 +52,11 @@ jobs:
           npm run build
 
           test -s out/index.html
+          test -d out/_next
+          test -s out/logo-cpm-energie.svg
 
-          # The same Pages deployment is exposed through the custom domain and
-          # through the repository URL. Keep a root variant for cpm-energie.de
-          # and create a prefixed mirror for github.io/cpm-energie-website/.
+          # Keep the root build for cpm-energie.de and create a complete
+          # repository-site mirror for github.io/cpm-energie-website/.
           project_site="$(mktemp -d)"
           cp -a out/. "$project_site/"
           mkdir -p out/cpm-energie-website
@@ -63,13 +64,20 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           prefix = "/cpm-energie-website"
           root = Path("out/cpm-energie-website")
+          attrs = ("href", "src", "srcSet", "poster", "action")
           for path in root.rglob("*.html"):
               text = path.read_text(encoding="utf-8")
-              text = text.replace('href="/', f'href="{prefix}/')
-              text = text.replace('src="/', f'src="{prefix}/')
-              text = text.replace('action="/', f'action="{prefix}/')
+              for attr in attrs:
+                  text = re.sub(
+                      rf'({attr}=["\'])/(?!/|cpm-energie-website)([^"\']*)',
+                      rf'\1{prefix}/\2',
+                      text,
+                  )
+              text = text.replace('url(/_next/', f'url({prefix}/_next/')
               path.write_text(text, encoding="utf-8")
           PY
 
@@ -85,7 +93,7 @@ jobs:
             test -s "out/$route"
           done
 
-          # Project-site mirror routes.
+          # Project-site mirror routes and assets.
           for route in \
             index.html \
             kontakt/index.html \
@@ -96,11 +104,11 @@ jobs:
             datenschutz/index.html; do
             test -s "out/cpm-energie-website/$route"
           done
+          test -d out/cpm-energie-website/_next
+          test -s out/cpm-energie-website/logo-cpm-energie.svg
 
           touch out/.nojekyll
           touch out/cpm-energie-website/.nojekyll
-          test -s out/index.html
-          test -s out/cpm-energie-website/index.html
 
           echo "===== COMPLETE DEPLOYMENT TREE ====="
           find out -print | sort
