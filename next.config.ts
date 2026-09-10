@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
         assetPrefix: "/cpm-energie-website/",
       }
     : {}),
+  env: {
+    NEXT_PUBLIC_GITHUB_PAGES: isGitHubPages ? "true" : "false",
+  },
   trailingSlash: true,
   images: { unoptimized: true },
   typescript: { ignoreBuildErrors: true },
