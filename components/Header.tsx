@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const BASE = "/cpm-energie-website";
+const BASE = process.env.NEXT_PUBLIC_GITHUB_PAGES === "true" ? "/cpm-energie-website" : "";
 const links = [
   ["Startseite", `${BASE}/`],
   ["Ersparnisrechner", `${BASE}/ersparnisrechner/`],
