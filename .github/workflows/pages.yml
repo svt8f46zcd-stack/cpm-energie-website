@@ -17,6 +17,7 @@ concurrency:
 env:
   GITHUB_PAGES: "true"
   NEXT_PUBLIC_GITHUB_PAGES: "true"
+  NEXT_PUBLIC_SPLINE_SCENE_URL: ${{ vars.CPM_SPLINE_SCENE_URL }}
   SITE_BASE: https://svt8f46zcd-stack.github.io/cpm-energie-website
   SITE_URLS: |
     https://svt8f46zcd-stack.github.io/cpm-energie-website/
