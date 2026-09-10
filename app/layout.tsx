@@ -3,7 +3,10 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 
-const SITE_URL = "https://svt8f46zcd-stack.github.io/cpm-energie-website";
+const isGitHubPages = process.env.GITHUB_PAGES === "true";
+const SITE_URL = isGitHubPages
+  ? "https://svt8f46zcd-stack.github.io/cpm-energie-website"
+  : "https://cpm-energie.de";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -29,12 +32,11 @@ export const metadata: Metadata = {
     "stromtarif prüfen",
     "gastarif prüfen",
   ],
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: isGitHubPages
+    ? { index: false, follow: false }
+    : { index: true, follow: true },
   alternates: {
-    canonical: "/",
+    canonical: isGitHubPages ? "https://cpm-energie.de/" : "/",
   },
   openGraph: {
     title: "Strom & Gas Rechnung prüfen | CPM Energie",
@@ -75,6 +77,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="de">
       <head>
+        {isGitHubPages && <meta name="robots" content="noindex, nofollow" />}
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
@@ -84,6 +87,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         />
       </head>
       <body>
+        {isGitHubPages && (
+          <div className="test-version-banner" role="status">
+            Testversion – nicht die offizielle Website. Siehe <a href="https://cpm-energie.de">cpm-energie.de</a>.
+          </div>
+        )}
         <Header />
         <main>{children}</main>
         <Footer />
