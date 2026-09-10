@@ -1,11 +1,16 @@
 import type { NextConfig } from "next";
 
+const isGitHubPages = process.env.GITHUB_PAGES === "true";
+
 const nextConfig: NextConfig = {
-  output: "export",
+  ...(isGitHubPages
+    ? {
+        output: "export" as const,
+        basePath: "/cpm-energie-website",
+        assetPrefix: "/cpm-energie-website/",
+      }
+    : {}),
   trailingSlash: true,
-  // Build root-relative files, then publish an exact /cpm-energie-website/
-  // mirror for the GitHub Pages project site.
-  basePath: "",
   images: { unoptimized: true },
   typescript: { ignoreBuildErrors: true },
 };
