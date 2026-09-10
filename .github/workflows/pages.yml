@@ -67,12 +67,15 @@ jobs:
           rm -rf out
           npm run build
 
+          # GitHub Pages must not run Jekyll over the static export.
+          touch out/.nojekyll
+
           test -s out/index.html
           test -d out/_next
           test -s out/logo-cpm-energie.svg
           test -s out/robots.txt
           test -s out/sitemap.xml
-          test -s out/.nojekyll
+          test -f out/.nojekyll
 
           for route in \
             index.html \
