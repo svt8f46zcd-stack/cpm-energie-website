@@ -1,12 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import BillUpload from "@/components/BillUpload";
-import { CPMEnergyFlow } from "@/components/CPMEnergyFlow";
 
 type BillFlowState = "idle" | "uploading" | "analyzing" | "success" | "error";
 type DesktopHeroProps = { onStatusChange?: (status: BillFlowState) => void };
 
 const isGitHubPages = process.env.NEXT_PUBLIC_GITHUB_PAGES === "true";
+const CPMEnergyFlow = dynamic(
+  () => import("@/components/CPMEnergyFlow").then((mod) => mod.CPMEnergyFlow),
+  { ssr: false },
+);
 const getBillContactPath = () => `${window.location.pathname.startsWith("/cpm-energie-website") ? "/cpm-energie-website" : ""}/kontakt/rechnung/`;
 
 export function DesktopHero({ onStatusChange }: DesktopHeroProps) {
