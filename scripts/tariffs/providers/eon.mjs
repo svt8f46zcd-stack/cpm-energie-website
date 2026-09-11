@@ -1,31 +1,3 @@
 import { checkCompliance, extractPrices, fetchText, htmlToText, normalizeOffer } from "../lib.mjs";
-
-export const provider = {
-  id: "eon",
-  name: "E.ON",
-  baseUrl: "https://www.eon.de",
-  agbUrl: "https://www.eon.de/de/pk/agb.html",
-  partner: false,
-  tariffNames: { strom: "E.ON Strom Referenztarif", gas: "E.ON Gas Referenztarif" },
-  sources: {
-    strom: "https://www.eon.de/de/pk/strom.html",
-    gas: "https://www.eon.de/de/pk/gas.html",
-  },
-};
-
-export async function parse() {
-  const compliance = await checkCompliance(provider);
-  if (!compliance.eligible) return { provider, compliance, offers: [] };
-  const offers = [];
-  for (const energy of ["strom", "gas"]) {
-    try {
-      const html = await fetchText(provider.sources[energy]);
-      const text = htmlToText(html);
-      const prices = extractPrices(text, energy);
-      if (prices) offers.push(normalizeOffer(provider, energy, prices, text, provider.sources[energy], compliance));
-    } catch (error) {
-      console.warn(`[eon:${energy}] ${error.message}`);
-    }
-  }
-  return { provider, compliance, offers };
-}
+export const provider={id:"eon",name:"E.ON",baseUrl:"https://www.eon.de",agbUrl:"https://www.eon.de/de/pk/agb.html",partner:false,tariffNames:{strom:"E.ON Strom Referenztarif",gas:"E.ON Gas Referenztarif"},sources:{strom:"https://www.eon.de/de/pk/strom.html",gas:"https://www.eon.de/de/pk/gas.html"}};
+export async function parse(){const compliance=await checkCompliance(provider);if(!compliance.eligible)return{provider,compliance,offers:[]};const offers=[];for(const energy of ["strom","gas"])try{const html=await fetchText(provider.sources[energy]);const text=htmlToText(html);const prices=extractPrices(html,energy)||extractPrices(text,energy);if(prices)offers.push(normalizeOffer(provider,energy,prices,text,provider.sources[energy],compliance));}catch(error){console.warn(`[eon:${energy}] ${error.message}`);}return{provider,compliance,offers};}
