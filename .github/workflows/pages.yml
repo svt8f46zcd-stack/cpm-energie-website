@@ -22,6 +22,7 @@ env:
   SITE_URLS: |
     https://svt8f46zcd-stack.github.io/cpm-energie-website/
     https://svt8f46zcd-stack.github.io/cpm-energie-website/kontakt/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/kontakt/rechnung/
     https://svt8f46zcd-stack.github.io/cpm-energie-website/ersparnisrechner/
     https://svt8f46zcd-stack.github.io/cpm-energie-website/so-funktionierts/
     https://svt8f46zcd-stack.github.io/cpm-energie-website/ueber-mich/
@@ -75,6 +76,7 @@ jobs:
           test -s out/robots.txt
           test -s out/sitemap.xml
           test -f out/.nojekyll
+          test -s out/404.html
 
           for route in \
             index.html \
