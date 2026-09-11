@@ -5,6 +5,7 @@ import { CTASection } from "@/components/CTASection";
 import { BillFeatures } from "@/components/BillFeatures";
 import { BillFlow } from "@/components/BillFlow";
 import { ResponsiveHero } from "@/components/ResponsiveHero";
+import { WechselpilotTariffCheck } from "@/components/WechselpilotTariffCheck";
 
 type BillFlowState = "idle" | "uploading" | "analyzing" | "success" | "error";
 const BASE = process.env.NEXT_PUBLIC_GITHUB_PAGES === "true" ? "/cpm-energie-website" : "";
@@ -80,6 +81,7 @@ export default function Home() {
       </div>
 
       <BillFlow status={billFlowState} />
+      <WechselpilotTariffCheck />
       <BillFeatures />
 
       <section className="cpm-section cpm-section-dark" id="transparenz" aria-labelledby="transparenz-heading">
