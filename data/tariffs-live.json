@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": null,
+  "method": "official-public-source-scrape",
+  "marketCoverage": "selected-provider-set",
+  "disclaimer": "Unverbindliche Beispielrechnung. Dieses Dataset wird automatisiert aus öffentlichen Anbieterquellen aktualisiert. Es ist keine vollständige Marktübersicht.",
+  "providers": {},
+  "offers": []
+}
