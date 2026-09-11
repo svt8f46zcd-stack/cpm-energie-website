@@ -1,4 +1,9 @@
 /* CPM Energie static lead funnel */
+const premiumStyle = document.createElement('link');
+premiumStyle.rel = 'stylesheet';
+premiumStyle.href = './premium.css';
+document.head.appendChild(premiumStyle);
+
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/REPLACE_WITH_FORM_ID';
 const form = document.querySelector('#lead-form');
 const steps = [...document.querySelectorAll('.step')];
