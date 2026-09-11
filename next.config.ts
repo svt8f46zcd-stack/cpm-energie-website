@@ -1,21 +1,16 @@
 import type { NextConfig } from "next";
 
-const isGitHubPages = process.env.GITHUB_PAGES === "true";
+const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
+const basePath = isGitHubPages ? "/cpm-energie-website" : "";
 
 const nextConfig: NextConfig = {
-  ...(isGitHubPages
-    ? {
-        output: "export" as const,
-        basePath: "/cpm-energie-website",
-        assetPrefix: "/cpm-energie-website/",
-      }
-    : {}),
-  env: {
-    NEXT_PUBLIC_GITHUB_PAGES: isGitHubPages ? "true" : "false",
-  },
+  output: "export",
   trailingSlash: true,
-  images: { unoptimized: true },
-  typescript: { ignoreBuildErrors: true },
+  basePath,
+  assetPrefix: basePath ? `${basePath}/` : undefined,
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;
