@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-11T20:24:08.506Z",
+  "generatedAt": "2026-09-11T20:26:20.939Z",
   "method": "official-public-source-scrape",
   "marketCoverage": "selected-provider-set",
   "disclaimer": "Unverbindliche Beispielrechnung. Dieses Dataset ist keine vollständige Marktübersicht. PLZ-spezifische Verfügbarkeit, Boni, Netzentgelte und Vertragsbedingungen müssen vor Abschluss geprüft werden.",
@@ -10,16 +10,16 @@
       "partner": true,
       "robotsAllowed": true,
       "agbFetched": true,
-      "agbNoExplicitAutomationBan": false,
-      "eligible": false,
+      "agbNoExplicitAutomationBan": true,
+      "eligible": true,
       "sourceUrls": {
         "strom": "https://www.vattenfall.de/strom/stromtarife",
         "gas": "https://www.vattenfall.de/gas/gastarife"
       },
       "agbUrl": "https://www.vattenfall.de/agb",
-      "lastRun": "2026-09-11T20:23:59.583Z",
+      "lastRun": "2026-09-11T20:26:13.443Z",
       "offersFound": 0,
-      "error": "robots_or_agb_blocked"
+      "error": null
     },
     "lichtblick": {
       "name": "LichtBlick",
@@ -33,7 +33,7 @@
         "gas": "https://www.lichtblick.de/gas/"
       },
       "agbUrl": "https://www.lichtblick.de/veroeffentlichungen/",
-      "lastRun": "2026-09-11T20:24:01.148Z",
+      "lastRun": "2026-09-11T20:26:14.653Z",
       "offersFound": 0,
       "error": null
     },
@@ -49,7 +49,7 @@
         "gas": "https://www.eon.de/de/pk/gas.html"
       },
       "agbUrl": "https://www.eon.de/de/pk/agb.html",
-      "lastRun": "2026-09-11T20:24:01.345Z",
+      "lastRun": "2026-09-11T20:26:14.863Z",
       "offersFound": 0,
       "error": "robots_error:HTTP_403 https://www.eon.de/robots.txt"
     },
@@ -58,16 +58,16 @@
       "partner": false,
       "robotsAllowed": true,
       "agbFetched": true,
-      "agbNoExplicitAutomationBan": false,
-      "eligible": false,
+      "agbNoExplicitAutomationBan": true,
+      "eligible": true,
       "sourceUrls": {
         "strom": "https://www.enbw.com/strom/privatkunden/produkte",
         "gas": "https://www.enbw.com/gas/privatkunden/produkte"
       },
       "agbUrl": "https://www.enbw.com/service/agb",
-      "lastRun": "2026-09-11T20:24:03.466Z",
+      "lastRun": "2026-09-11T20:26:17.934Z",
       "offersFound": 0,
-      "error": "robots_or_agb_blocked"
+      "error": null
     },
     "yello": {
       "name": "Yello",
@@ -81,7 +81,7 @@
         "gas": "https://www.yello.de/gas/gastarife/"
       },
       "agbUrl": "https://www.yello.de/agb/strom/",
-      "lastRun": "2026-09-11T20:24:08.506Z",
+      "lastRun": "2026-09-11T20:26:20.939Z",
       "offersFound": 0,
       "error": null
     }
