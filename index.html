@@ -1,126 +1,88 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#07111f">
-  <meta name="description" content="CPM Energie prüft Ihr Stromsparpotenzial transparent und unverbindlich. Persönliche Beratung, klare Tarifinformationen und ein einfacher digitaler Stromcheck.">
-  <meta name="robots" content="index,follow">
-  <title>Stromkosten senken | CPM Energie</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: {
-        colors: { ink:'#07111f', navy:'#0b1830', cyan:'#38d8ff', ice:'#eaf8ff', line:'#dce7f0' },
-        boxShadow: { card:'0 24px 70px rgba(3,12,25,.16)', soft:'0 10px 35px rgba(3,12,25,.08)', cyan:'0 16px 45px rgba(56,216,255,.22)' }
-      }}
-    };
-  </script>
-  <link rel="stylesheet" href="./styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06111f">
+<meta name="description" content="CPM Energie Stromcheck: Stromkosten transparent und persönlich prüfen. Kostenlos und unverbindlich.">
+<title>CPM Energie | Stromkosten transparent prüfen</title>
+<link rel="stylesheet" href="./styles.css">
 </head>
-<body class="bg-[#f7fafc] text-slate-900 antialiased">
-  <header class="site-header">
-    <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
-      <a href="./" class="brand" aria-label="CPM Energie Startseite"><span class="brand-mark">CPM</span><span class="brand-name">ENERGIE</span></a>
-      <div class="hidden items-center gap-7 text-sm font-semibold text-slate-600 md:flex">
-        <a href="#ablauf" class="nav-link">So funktioniert es</a>
-        <a href="#transparenz" class="nav-link">Transparenz</a>
-        <a href="#faq" class="nav-link">FAQ</a>
-        <span class="secure-pill"><span class="secure-dot"></span>Sicher &amp; unverbindlich</span>
-      </div>
-      <a href="#stromcheck" class="header-cta">Stromcheck starten</a>
-    </div>
-  </header>
+<body>
+<div class="page">
+<header class="header">
+  <div class="container header-inner">
+    <a href="./" class="logo" aria-label="CPM Energie"><span class="logo-cpm">CPM</span><span class="logo-energy">ENERGIE</span></a>
+    <nav class="nav"><a href="#ablauf">So funktioniert es</a><a href="#transparenz">Transparenz</a><a href="#faq">FAQ</a></nav>
+    <a href="#stromcheck" class="nav-cta">Stromcheck starten <span>↗</span></a>
+  </div>
+</header>
 
-  <main>
-    <section class="hero-section">
-      <div class="hero-grid-bg"></div>
-      <div class="mx-auto grid max-w-7xl gap-12 px-5 py-12 lg:grid-cols-[1fr_510px] lg:items-center lg:px-8 lg:py-20 xl:gap-20">
-        <div class="hero-copy">
-          <div class="eyebrow"><span class="eyebrow-dot"></span>Persönlicher Stromcheck</div>
-          <h1>Stromkosten senken.<br><span>Transparent. Persönlich.</span></h1>
-          <p class="hero-lead">Prüfen Sie in wenigen Schritten, ob Ihr aktueller Stromtarif noch zu Ihrem Verbrauch passt. Ohne komplizierte Suche und ohne Vertragsabschluss über dieses Formular.</p>
-          <div class="hero-trust-grid">
-            <div><span class="trust-icon">✓</span><div><strong>Unverbindlich</strong><small>Erst prüfen, dann entscheiden</small></div></div>
-            <div><span class="trust-icon">↗</span><div><strong>Transparent</strong><small>Grundpreis &amp; Arbeitspreis im Blick</small></div></div>
-            <div><span class="trust-icon">♙</span><div><strong>Persönlich</strong><small>Beratung statt anonymer Abfertigung</small></div></div>
-            <div><span class="trust-icon">⌁</span><div><strong>Datensparsam</strong><small>Nur Angaben, die für den Check nötig sind</small></div></div>
-          </div>
-          <div class="hero-note"><span>🔒</span><span>Ihre Angaben werden sicher übertragen. Eine Anfrage ist noch kein Vertragsabschluss.</span></div>
+<main>
+<section class="hero">
+  <div class="hero-grid"></div><div class="orb orb-a"></div><div class="orb orb-b"></div>
+  <div class="container hero-inner">
+    <div class="hero-copy">
+      <div class="eyebrow"><i></i> Persönlicher Stromcheck</div>
+      <h1>Stromkosten<br><span>klarer verstehen.</span></h1>
+      <p class="hero-lead">Prüfe in wenigen Schritten, ob dein aktueller Stromtarif noch zu deinem Verbrauch passt. Verständlich, persönlich und ohne automatische Wechselbindung.</p>
+      <div class="hero-points"><div><b>01</b><span>Verbrauch einordnen</span></div><div><b>02</b><span>Tarif verstehen</span></div><div><b>03</b><span>Selbst entscheiden</span></div></div>
+      <div class="security-note"><span class="security-icon">✓</span><div><strong>Unverbindlich &amp; transparent</strong><small>Eine Anfrage ist noch kein Vertragsabschluss.</small></div></div>
+    </div>
+
+    <section class="check-card" id="stromcheck" aria-labelledby="check-title">
+      <div class="card-header"><div><span class="card-overline">CPM ENERGIE · DIGITALER CHECK</span><h2 id="check-title">Stromcheck starten</h2></div><div class="secure-badge"><span></span> Sicher</div></div>
+      <div class="progress-area"><div class="progress-info"><span id="progress-text">Schritt 1 von 3</span><strong id="progress-percent">33 %</strong></div><div class="progress-track"><div id="progress-bar"></div></div><div class="step-labels"><span class="active">Verbrauch</span><span>Persönlich</span><span>Kontakt</span></div></div>
+      <form id="lead-form" novalidate>
+        <div class="step" data-step="1">
+          <div class="step-title"><span>01</span><div><h3>Der erste Schritt</h3><p>Wo wohnst du und wie viel Strom verbrauchst du?</p></div></div>
+          <div class="field"><label for="plz">Postleitzahl</label><div class="input-box"><span class="input-symbol">⌖</span><input id="plz" name="plz" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="55116" required></div><p class="field-error" data-error-for="plz"></p></div>
+          <div class="field"><label for="verbrauch">Jahresverbrauch</label><div class="input-box"><span class="input-symbol">↯</span><input id="verbrauch" name="verbrauch" inputmode="numeric" autocomplete="off" placeholder="3.500" required><span class="input-unit">kWh / Jahr</span></div><p class="field-error" data-error-for="verbrauch"></p></div>
+          <div class="hint"><span>i</span><p>Den Verbrauch findest du auf deiner letzten Jahresabrechnung. Eine grobe Angabe reicht für den Einstieg.</p></div>
+          <button type="button" class="primary-btn" data-next="2">Weiter <span>→</span></button>
+          <p class="microcopy">Kostenlos · unverbindlich · keine automatische Vertragsbindung</p>
         </div>
 
-        <section id="stromcheck" class="form-shell" aria-labelledby="form-title">
-          <div class="form-topline"><div><span class="form-kicker">KOSTENLOSER CHECK</span><h2 id="form-title">Ihr Sparpotenzial prüfen</h2></div><div class="step-counter" id="progress-text">Schritt 1 von 3</div></div>
-          <div class="progress-track"><div id="progress-bar" class="progress-value"></div></div>
-          <div class="step-labels"><span class="active">Verbrauch</span><span>Persönliche Daten</span><span>Kontakt</span></div>
+        <div class="step hidden" data-step="2">
+          <div class="step-title"><span>02</span><div><h3>Persönliche Angaben</h3><p>Damit wir deine Anfrage eindeutig zuordnen können.</p></div></div>
+          <div class="two-col"><div class="field"><label for="vorname">Vorname</label><input id="vorname" name="vorname" autocomplete="given-name" placeholder="Max" required><p class="field-error" data-error-for="vorname"></p></div><div class="field"><label for="nachname">Nachname</label><input id="nachname" name="nachname" autocomplete="family-name" placeholder="Mustermann" required><p class="field-error" data-error-for="nachname"></p></div></div>
+          <div class="field"><label for="strasse">Straße und Hausnummer</label><input id="strasse" name="strasse" autocomplete="street-address" placeholder="Musterstraße 12" required><p class="field-error" data-error-for="strasse"></p></div>
+          <div class="two-col"><div class="field"><label for="geburtsdatum">Geburtsdatum</label><input id="geburtsdatum" name="geburtsdatum" type="date" autocomplete="bday" required><p class="field-error" data-error-for="geburtsdatum"></p></div><div class="field"><label for="taetigkeit">Tätigkeit</label><input id="taetigkeit" name="taetigkeit" autocomplete="organization-title" placeholder="z. B. Angestellter" required><p class="field-error" data-error-for="taetigkeit"></p></div></div>
+          <div class="button-row"><button type="button" class="secondary-btn" data-prev="1">← Zurück</button><button type="button" class="primary-btn" data-next="3">Weiter <span>→</span></button></div>
+        </div>
 
-          <form id="lead-form" novalidate>
-            <div class="step" data-step="1">
-              <div class="step-intro"><span class="number-badge">01</span><div><h3>Starten wir mit zwei Angaben</h3><p>Damit können wir Ihr persönliches Sparpotenzial besser einordnen.</p></div></div>
-              <label for="plz" class="field-label">Ihre PLZ</label>
-              <div class="input-wrap"><span class="input-prefix">DE</span><input id="plz" name="plz" class="lead-input prefixed" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="55232" required></div>
-              <p class="field-error" data-error-for="plz"></p>
-              <label for="verbrauch" class="field-label mt-5">Jahresverbrauch</label>
-              <div class="input-wrap"><input id="verbrauch" name="verbrauch" class="lead-input suffixed" inputmode="numeric" autocomplete="off" placeholder="3.500" required><span class="input-suffix">kWh / Jahr</span></div>
-              <p class="field-error" data-error-for="verbrauch"></p>
-              <div class="helper-box"><span>i</span><p>Wenn Sie Ihren Verbrauch nicht genau kennen, finden Sie ihn auf Ihrer letzten Jahresabrechnung.</p></div>
-              <button type="button" class="primary-btn mt-6" data-next="2">Weiter zum persönlichen Check <span>→</span></button>
-              <p class="microcopy">Kostenlos · unverbindlich · keine automatische Vertragsbindung</p>
-            </div>
-
-            <div class="step hidden" data-step="2">
-              <div class="step-intro"><span class="number-badge">02</span><div><h3>Wer darf beraten werden?</h3><p>Wir benötigen diese Angaben für eine persönliche und eindeutige Zuordnung.</p></div></div>
-              <div class="grid gap-4 sm:grid-cols-2">
-                <div><label for="vorname" class="field-label">Vorname</label><input id="vorname" name="vorname" class="lead-input" autocomplete="given-name" required><p class="field-error" data-error-for="vorname"></p></div>
-                <div><label for="nachname" class="field-label">Nachname</label><input id="nachname" name="nachname" class="lead-input" autocomplete="family-name" required><p class="field-error" data-error-for="nachname"></p></div>
-              </div>
-              <label for="strasse" class="field-label mt-5">Straße und Hausnummer</label><input id="strasse" name="strasse" class="lead-input" autocomplete="street-address" placeholder="Musterstraße 12" required><p class="field-error" data-error-for="strasse"></p>
-              <div class="grid gap-4 sm:grid-cols-2 mt-5">
-                <div><label for="geburtsdatum" class="field-label">Geburtsdatum</label><input id="geburtsdatum" name="geburtsdatum" type="date" class="lead-input" autocomplete="bday" required><p class="field-error" data-error-for="geburtsdatum"></p></div>
-                <div><label for="taetigkeit" class="field-label">Tätigkeit</label><input id="taetigkeit" name="taetigkeit" class="lead-input" autocomplete="organization-title" placeholder="z. B. Angestellter" required><p class="field-error" data-error-for="taetigkeit"></p></div>
-              </div>
-              <div class="mt-6 grid grid-cols-2 gap-3"><button type="button" class="secondary-btn" data-prev="1">← Zurück</button><button type="button" class="primary-btn" data-next="3">Weiter <span>→</span></button></div>
-            </div>
-
-            <div class="step hidden" data-step="3">
-              <div class="step-intro"><span class="number-badge">03</span><div><h3>Wie erreichen wir Sie?</h3><p>Nur damit wir Rückfragen schnell und persönlich klären können.</p></div></div>
-              <label for="telefon" class="field-label">Mobilnummer</label>
-              <div class="input-wrap"><span class="input-prefix">+49</span><input id="telefon" name="telefon" type="tel" class="lead-input prefixed" inputmode="tel" autocomplete="tel" placeholder="176 12345678" required></div>
-              <p class="field-error" data-error-for="telefon"></p><p id="phone-status" class="phone-status"></p>
-              <div class="grid gap-4 sm:grid-cols-2 mt-5">
-                <div><label for="heizung" class="field-label">Heizungsart</label><select id="heizung" name="heizung" class="lead-input" required><option value="">Bitte auswählen</option><option>Gas</option><option>Öl</option><option>Wärmepumpe</option><option>Fernwärme</option><option>Nachtspeicher</option><option>Sonstige</option></select><p class="field-error" data-error-for="heizung"></p></div>
-                <div><label for="erreichbarkeit" class="field-label">Erreichbarkeit</label><select id="erreichbarkeit" name="erreichbarkeit" class="lead-input" required><option value="">Bitte auswählen</option><option>Vormittags</option><option>Mittags</option><option>Nachmittags</option><option>Abends</option><option>Flexibel</option></select><p class="field-error" data-error-for="erreichbarkeit"></p></div>
-              </div>
-              <label class="consent-card mt-5"><input id="whatsapp" name="whatsapp_optin" type="checkbox"><span><strong>WhatsApp optional</strong><small>Ich möchte bei Rückfragen auch über WhatsApp kontaktiert werden.</small></span></label>
-              <label class="consent-card mt-3"><input id="callback-consent" name="callback_consent" type="checkbox" required><span><strong>Telefonische Beratung</strong><small>Ich willige ausdrücklich ein, telefonisch zum Stromvergleich kontaktiert zu werden. Die Einwilligung kann jederzeit widerrufen werden.</small></span></label>
-              <p class="field-error" data-error-for="callback-consent"></p>
-              <label class="privacy-row mt-4"><input id="privacy" name="privacy_consent" type="checkbox" required><span>Ich akzeptiere die <a href="#datenschutz">Datenschutzhinweise</a>.</span></label>
-              <p class="field-error" data-error-for="privacy"></p>
-              <div class="mt-6 grid grid-cols-2 gap-3"><button type="button" class="secondary-btn" data-prev="2">← Zurück</button><button type="submit" class="primary-btn">Check unverbindlich anfragen <span>→</span></button></div>
-              <p class="microcopy">Keine versteckten Kosten · kein automatischer Vertragsabschluss</p>
-            </div>
-
-            <div id="success" class="hidden success-state"><div class="success-icon">✓</div><p class="form-kicker">ANFRAGE ERFOLGREICH ÜBERMITTELT</p><h2>Danke. Wir kümmern uns darum.</h2><p>Ihre Angaben sind eingegangen. Wir melden uns zur gewünschten Zeit für die persönliche Prüfung.</p><div class="lead-reference"><span>Vorgangsnummer</span><strong id="lead-id"></strong></div></div>
-            <div id="form-status" class="form-status" role="status" aria-live="polite"></div>
-          </form>
-        </section>
-      </div>
+        <div class="step hidden" data-step="3">
+          <div class="step-title"><span>03</span><div><h3>Der letzte Schritt</h3><p>Wie und wann dürfen wir dich erreichen?</p></div></div>
+          <div class="field"><label for="telefon">Mobilnummer</label><div class="input-box"><span class="input-symbol">☎</span><input id="telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" placeholder="0176 12345678" required></div><p class="field-error" data-error-for="telefon"></p><p class="phone-status" id="phone-status"></p></div>
+          <div class="two-col"><div class="field"><label for="heizung">Heizungsart</label><select id="heizung" name="heizung" required><option value="">Bitte auswählen</option><option>Gas</option><option>Öl</option><option>Wärmepumpe</option><option>Fernwärme</option><option>Nachtspeicher</option><option>Sonstige</option></select><p class="field-error" data-error-for="heizung"></p></div><div class="field"><label for="erreichbarkeit">Erreichbarkeit</label><select id="erreichbarkeit" name="erreichbarkeit" required><option value="">Bitte auswählen</option><option>Vormittags</option><option>Mittags</option><option>Nachmittags</option><option>Abends</option><option>Flexibel</option></select><p class="field-error" data-error-for="erreichbarkeit"></p></div></div>
+          <label class="consent-card"><input id="whatsapp" name="whatsapp_optin" type="checkbox"><span class="custom-check"></span><span><strong>WhatsApp optional</strong><small>Ich möchte bei Rückfragen auch über WhatsApp kontaktiert werden.</small></span></label>
+          <label class="consent-card"><input id="callback-consent" name="callback_consent" type="checkbox" required><span class="custom-check"></span><span><strong>Telefonische Beratung</strong><small>Ich willige ausdrücklich ein, telefonisch zum Stromvergleich kontaktiert zu werden.</small></span></label><p class="field-error" data-error-for="callback-consent"></p>
+          <label class="privacy-row"><input id="privacy" name="privacy_consent" type="checkbox" required><span>Ich bestätige die <a href="#datenschutz">Datenschutzhinweise</a>.</span></label><p class="field-error" data-error-for="privacy"></p>
+          <div class="button-row"><button type="button" class="secondary-btn" data-prev="2">← Zurück</button><button type="submit" class="primary-btn">Jetzt unverbindlich prüfen <span>→</span></button></div>
+          <p class="microcopy">Verschlüsselte Übertragung · kein automatischer Vertragsabschluss</p>
+        </div>
+        <div id="success" class="hidden success-state"><div class="success-icon">✓</div><span class="card-overline">ANFRAGE EINGEGANGEN</span><h2>Danke. Wir kümmern uns darum.</h2><p>Deine Angaben sind angekommen. Wir melden uns zur gewünschten Erreichbarkeit.</p><div class="reference"><span>Vorgangsnummer</span><strong id="lead-id"></strong></div></div>
+        <div id="form-status" class="form-status" role="status" aria-live="polite"></div>
+      </form>
     </section>
+  </div>
+</section>
 
-    <section class="trust-strip"><div class="mx-auto grid max-w-7xl gap-3 px-5 py-5 sm:grid-cols-3 lg:px-8"><div><strong>🔒 SSL geschützt</strong><span>Sichere Datenübertragung</span></div><div><strong>🇪🇺 Datenschutz im Fokus</strong><span>Klare Einwilligungen statt Kleingedrucktem</span></div><div><strong>✓ Erst prüfen, dann entscheiden</strong><span>Die Anfrage ist kein Vertragsabschluss</span></div></div></section>
+<section class="trust-strip"><div class="container trust-inner"><div><span>✓</span><strong>Unverbindlich</strong><small>Erst prüfen, dann entscheiden</small></div><div><span>◈</span><strong>Transparent</strong><small>Arbeitspreis &amp; Grundpreis im Blick</small></div><div><span>◉</span><strong>Persönlich</strong><small>Direkter Ansprechpartner</small></div><div><span>⌁</span><strong>Sicher</strong><small>Geschützte Übertragung</small></div></div></section>
 
-    <section id="ablauf" class="section-white"><div class="mx-auto max-w-7xl px-5 py-20 lg:px-8"><div class="section-heading"><span>DER WEG ZUM TARIFCHECK</span><h2>Einfacher Ablauf. Klare Entscheidung.</h2><p>Ein guter Vergleich sollte nicht kompliziert sein. Deshalb führen wir Sie Schritt für Schritt durch die wichtigsten Angaben.</p></div><div class="process-grid"><article><span>01</span><h3>Verbrauch eingeben</h3><p>PLZ und Jahresverbrauch reichen für den Einstieg.</p></article><article><span>02</span><h3>Situation verstehen</h3><p>Wir erfassen die Angaben, die für eine persönliche Beratung relevant sind.</p></article><article><span>03</span><h3>Tarif gemeinsam prüfen</h3><p>Auf Wunsch besprechen wir Preis, Bedingungen und mögliche Alternativen.</p></article></div></div></section>
+<section class="light-section" id="ablauf"><div class="container section-inner"><div class="section-heading"><span class="section-label">SO FUNKTIONIERT ES</span><h2>Einfacher Ablauf.<br><em>Klare Entscheidung.</em></h2><p>Ein guter Stromvergleich sollte nicht kompliziert sein. Deshalb konzentrieren wir uns auf die Angaben, die für eine sinnvolle Einordnung wirklich wichtig sind.</p></div><div class="process-grid"><article><div class="process-top"><span>01</span><i>⌖</i></div><h3>Verbrauch angeben</h3><p>PLZ und Jahresverbrauch bilden die Grundlage für deinen persönlichen Check.</p></article><article><div class="process-top"><span>02</span><i>▦</i></div><h3>Tarif einordnen</h3><p>Arbeitspreis, Grundpreis und weitere relevante Bedingungen werden verständlich betrachtet.</p></article><article><div class="process-top"><span>03</span><i>↗</i></div><h3>Selbst entscheiden</h3><p>Du erhältst eine nachvollziehbare Grundlage und entscheidest selbst, wie es weitergeht.</p></article></div></div></section>
 
-    <section id="transparenz" class="dark-section"><div class="mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-2 lg:px-8 lg:items-center"><div><span class="dark-eyebrow">TRANSPARENZ STATT VERSPRECHEN</span><h2>Ein günstiger Preis allein ist nicht die ganze Wahrheit.</h2><p>Bei einem Stromtarif zählen nicht nur die monatlichen Abschläge. Entscheidend sind unter anderem Arbeitspreis, Grundpreis, Laufzeit, Preisgarantie und die tatsächlichen Bedingungen eines Angebots.</p><p>Deshalb möchten wir Ihnen die relevanten Punkte verständlich erklären, bevor Sie eine Entscheidung treffen.</p></div><div class="transparency-card"><div><span>01</span><strong>Arbeitspreis</strong><small>Preis pro verbrauchter kWh</small></div><div><span>02</span><strong>Grundpreis</strong><small>Fixe Kosten des Tarifs</small></div><div><span>03</span><strong>Laufzeit &amp; Fristen</strong><small>Was gilt nach Vertragsabschluss?</small></div><div><span>04</span><strong>Preisgarantie</strong><small>Welche Preisbestandteile sind geschützt?</small></div></div></div></section>
+<section class="dark-section" id="transparenz"><div class="container section-inner transparency-layout"><div><span class="dark-label">TRANSPARENZ STATT VERSPRECHEN</span><h2>Ein günstiger Abschlag ist nicht automatisch ein günstiger Tarif.</h2><p>Bei Stromtarifen zählen mehrere Faktoren. Deshalb sollten Arbeitspreis, Grundpreis, Vertragslaufzeit und Preisgarantie gemeinsam betrachtet werden.</p><p>CPM Energie stellt diese Punkte verständlich in den Mittelpunkt, damit du eine Entscheidung nicht nur nach einer einzigen Zahl treffen musst.</p></div><div class="tariff-card"><div class="tariff-head"><span>Tarifbestandteile</span><b><i></i> nachvollziehbar</b></div><div class="tariff-item"><span>01</span><div><strong>Arbeitspreis</strong><small>Preis je verbrauchter kWh</small></div><b>ct/kWh</b></div><div class="tariff-item"><span>02</span><div><strong>Grundpreis</strong><small>Fixe Kosten des Tarifs</small></div><b>€/Monat</b></div><div class="tariff-item"><span>03</span><div><strong>Laufzeit &amp; Fristen</strong><small>Vertragsbedingungen verstehen</small></div><b>Details</b></div><div class="tariff-item"><span>04</span><div><strong>Preisgarantie</strong><small>Welche Bestandteile sind geschützt?</small></div><b>Details</b></div></div></div></section>
 
-    <section class="section-white"><div class="mx-auto max-w-7xl px-5 py-20 lg:px-8"><div class="why-grid"><div><span class="section-kicker">WARUM CPM ENERGIE</span><h2>Persönliche Beratung mit digitalem Komfort.</h2><p>Der Strommarkt ist komplex genug. Unser Anspruch ist deshalb ein klarer Prozess: verständliche Informationen, nachvollziehbare Angaben und ein persönlicher Ansprechpartner, wenn Sie ihn wünschen.</p><a href="#stromcheck" class="text-link">Jetzt Stromcheck starten →</a></div><div class="feature-stack"><div><span>01</span><strong>Keine Entscheidung unter Druck</strong><p>Sie prüfen zuerst und entscheiden danach.</p></div><div><span>02</span><strong>Klare Kommunikation</strong><p>Wichtige Tarifbestandteile werden verständlich erklärt.</p></div><div><span>03</span><strong>Persönlicher Ansprechpartner</strong><p>Fragen lassen sich direkt mit einem Menschen klären.</p></div></div></div></div></section>
+<section class="light-section"><div class="container section-inner personal-grid"><div class="person-card"><div class="person-avatar">CM</div><span>CPM Energie</span></div><div><span class="section-label">PERSÖNLICH BEI FRAGEN</span><h2>Digital starten.<br><em>Persönlich erklärt.</em></h2><p>Hinter CPM Energie steht ein direkter Ansprechpartner. Wenn etwas unklar ist, kannst du deine Fragen persönlich besprechen statt dich durch anonyme Vergleichsseiten zu arbeiten.</p><div class="person-points"><span>✓ Direkter Kontakt</span><span>✓ Verständliche Erklärung</span><span>✓ Freie Entscheidung</span></div><a href="#stromcheck" class="outline-btn">Stromcheck starten <span>→</span></a></div></div></section>
 
-    <section id="faq" class="faq-section"><div class="mx-auto max-w-4xl px-5 py-20 lg:px-8"><div class="section-heading"><span>FAQ</span><h2>Häufige Fragen</h2></div><div class="faq-list"><details open><summary>Ist die Prüfung wirklich unverbindlich?</summary><p>Ja. Das Formular dient der Anfrage und persönlichen Prüfung. Über dieses Formular kommt kein automatischer Stromvertrag zustande.</p></details><details><summary>Welche Angaben brauche ich?</summary><p>Zum Start benötigen Sie nur Ihre PLZ und Ihren ungefähren Jahresverbrauch. Weitere Angaben werden erst im nächsten Schritt abgefragt.</p></details><details><summary>Warum werden persönliche Daten abgefragt?</summary><p>Damit eine Anfrage eindeutig zugeordnet und eine persönliche Beratung durchgeführt werden kann. Die Einwilligungen sind im Formular getrennt und verständlich dargestellt.</p></details><details><summary>Worauf sollte ich beim Stromtarif achten?</summary><p>Nicht nur auf den Abschlag. Arbeitspreis, Grundpreis, Laufzeit, Preisgarantie, Kündigungsfristen und Bonusbedingungen können die tatsächlichen Kosten beeinflussen.</p></details></div></div></section>
+<section class="faq-section" id="faq"><div class="container section-inner"><div class="section-heading center"><span class="section-label">FAQ</span><h2>Die wichtigsten Fragen.</h2></div><div class="faq-grid"><details><summary>Ist der Stromcheck kostenlos?</summary><p>Ja. Die Anfrage und die erste Prüfung sind kostenlos und unverbindlich.</p></details><details><summary>Schließe ich damit einen neuen Vertrag ab?</summary><p>Nein. Das Formular ist kein Vertragsabschluss und verpflichtet dich nicht zu einem Anbieterwechsel.</p></details><details><summary>Warum werden Kontaktdaten benötigt?</summary><p>Damit wir deine Anfrage persönlich zuordnen und dich nach deiner ausdrücklichen Einwilligung erreichen können.</p></details><details><summary>Was wird betrachtet?</summary><p>Unter anderem Verbrauch, Arbeitspreis, Grundpreis, Laufzeit und weitere relevante Tarifbedingungen.</p></details></div></div></section>
 
-    <section id="datenschutz" class="legal-section"><div class="mx-auto max-w-4xl px-5 py-14 lg:px-8"><h2>Datenschutz und transparente Kommunikation</h2><p>Die Angaben aus diesem Formular werden an den in der technischen Konfiguration hinterlegten Formspree Dienst übermittelt und zur Bearbeitung Ihrer Anfrage verwendet. Vor dem produktiven Einsatz müssen der konkrete Formspree Endpoint, die vollständige Datenschutzerklärung und alle tatsächlich eingesetzten Auftragsverarbeiter korrekt hinterlegt werden.</p><p>Die WhatsApp Kontaktaufnahme ist optional. Eine telefonische Kontaktaufnahme erfolgt nur auf Grundlage der im Formular erteilten Einwilligung.</p></div></section>
-  </main>
-
-  <footer class="site-footer"><div class="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between lg:px-8"><div><strong class="text-white">CPM ENERGIE</strong><span class="ml-2">Stromvergleich &amp; persönliche Beratung</span></div><div class="flex gap-5"><a href="#datenschutz">Datenschutz</a><a href="#faq">FAQ</a><a href="#stromcheck">Stromcheck</a></div></div></footer>
-  <script src="./script.js" defer></script>
+<section class="final-section"><div class="final-glow"></div><div class="container final-inner"><span class="dark-label">DER NÄCHSTE SCHRITT</span><h2>Mehr Klarheit beginnt<br><span>mit deinem Stromcheck.</span></h2><p>Starte kostenlos und unverbindlich. Du entscheidest danach selbst, wie es weitergeht.</p><a href="#stromcheck" class="primary-btn final-btn">Stromkosten prüfen <span>→</span></a></div></section>
+<section class="privacy" id="datenschutz"><div class="container"><span class="section-label">DATENSCHUTZ</span><h2>Deine Daten gehören dir.</h2><p>Wir verwenden die Angaben zur Bearbeitung deiner Anfrage und zur persönlichen Kontaktaufnahme. Die konkreten Datenschutzhinweise und eingesetzten Dienstleister müssen für den produktiven Betrieb vollständig und passend zu den tatsächlich verwendeten Systemen hinterlegt sein.</p></div></section>
+</main>
+<footer class="footer"><div class="container footer-inner"><a href="./" class="logo"><span class="logo-cpm">CPM</span><span class="logo-energy">ENERGIE</span></a><span>Strom &amp; Energie persönlich erklärt.</span><span>© CPM Energie</span></div></footer>
+</div>
+<script src="./script.js" defer></script>
 </body>
 </html>
