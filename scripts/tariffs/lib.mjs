@@ -5,10 +5,7 @@ export const USER_AGENT = "CPM-Energie-TariffBot/1.0 (+https://cpm-energie.de)";
 const BLOCKED_AGB_PATTERNS = [
   /automatisierte(?:n|r|s)?\s+(?:zugriff|abfragen|auslesen|abruf)/i,
   /automated\s+(?:access|requests|scraping|crawling)/i,
-  /scrap(?:ing|er)/i,
-  /crawler/i,
-  /bots?\b/i,
-  /robot(?:s|er)?\b/i,
+  /(?:website|portal|inhalt|daten)[\s\S]{0,100}(?:scrap(?:ing|er)|crawler)/i,
 ];
 
 export async function fetchText(url, options = {}) {
@@ -49,7 +46,7 @@ function numberFrom(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function findNear(text, label, regex, maxDistance = 900) {
+function findNear(text, label, regex, maxDistance = 1600) {
   const matches = [];
   const flags = label.flags.includes("g") ? label.flags : `${label.flags}g`;
   const re = new RegExp(label.source, flags);
@@ -62,25 +59,24 @@ function findNear(text, label, regex, maxDistance = 900) {
   return matches.filter((n) => n !== null);
 }
 
-export function extractPrices(text, energy) {
-  const normalized = text.replace(/\u00a0/g, " ");
+export function extractPrices(source, energy) {
+  const normalized = source.replace(/\u00a0/g, " ").replace(/&nbsp;/gi, " ");
   const workCandidates = findNear(
     normalized,
-    /(?:Arbeitspreis|Verbrauchspreis|Verbrauchskosten|Preis\s*pro\s*kWh)/i,
+    /(?:Arbeitspreis|Verbrauchspreis|Verbrauchskosten|Preis\s*pro\s*kWh|ct\s*\/\s*kWh)/i,
     /([0-9]{1,3}(?:[,.][0-9]{1,3})?)\s*(?:ct|cent|€-cent)\s*(?:\/|pro)?\s*kWh/i,
   ).filter((n) => n >= 5 && n <= 100);
   const baseCandidates = findNear(
     normalized,
     /(?:Grundpreis|Grundgebühr|Fixkosten)/i,
-    /([0-9]{1,5}(?:[,.][0-9]{1,2})?)\s*(?:€|EUR)\s*(?:\/\s*(?:Monat|Jahr)|pro\s+(?:Monat|Jahr)|jährlich|monatlich)/i,
+    /([0-9]{1,5}(?:[,.][0-9]{1,2})?)\s*(?:€|EUR|&euro;)\s*(?:\/\s*(?:Monat|Jahr)|pro\s+(?:Monat|Jahr)|jährlich|monatlich)/i,
   ).filter((n) => n >= 1 && n <= 10000);
 
-  const workPriceCt = workCandidates.length ? workCandidates[0] : null;
+  const workPriceCt = workCandidates.length ? Math.min(...workCandidates.filter((n) => n >= 10 && n <= 80)) : null;
   let basePriceYear = null;
   if (baseCandidates.length) {
     const raw = baseCandidates[0];
-    const rawText = String(raw).replace(".", "\\.");
-    const context = normalized.match(new RegExp(`(?:Grundpreis|Grundgebühr|Fixkosten)[\\s\\S]{0,180}?${rawText}`, "i"));
+    const context = normalized.match(new RegExp(`(?:Grundpreis|Grundgebühr|Fixkosten)[\s\S]{0,240}?${String(raw).replace(".", "\\.")}`, "i"));
     basePriceYear = context && /Monat|monatlich/i.test(context[0]) ? raw * 12 : raw;
   }
   if (workPriceCt === null || basePriceYear === null) return null;
@@ -118,7 +114,7 @@ export async function checkCompliance(provider) {
     return result;
   }
   try {
-    const agb = await fetchText(provider.agbUrl, { accept: "text/html,application/pdf,*/*" });
+    const agb = await fetchText(provider.agbUrl, { accept: "text/html,application/xhtml+xml,*/*" });
     result.agbFetched = true;
     const text = htmlToText(agb);
     result.agbNoExplicitAutomationBan = !BLOCKED_AGB_PATTERNS.some((pattern) => pattern.test(text));
