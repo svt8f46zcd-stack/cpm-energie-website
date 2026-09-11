@@ -23,35 +23,36 @@ export async function fetchText(url, options = {}) {
 
 export function htmlToText(html) {
   return html
-    .replace(/<script[\\s\\S]*?<\\/script>/gi, " ")
-    .replace(/<style[\\s\\S]*?<\\/style>/gi, " ")
-    .replace(/<noscript[\\s\\S]*?<\\/noscript>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&euro;/gi, "€")
     .replace(/&#8364;/gi, "€")
     .replace(/&amp;/gi, "&")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
 function numberFrom(value) {
   if (!value) return null;
-  const cleaned = value.replace(/\\s/g, "").replace(/[^0-9,.]/g, "");
+  const cleaned = value.replace(/\s/g, "").replace(/[^0-9,.]/g, "");
   if (!cleaned) return null;
   const comma = cleaned.lastIndexOf(",");
   const dot = cleaned.lastIndexOf(".");
   let normalized = cleaned;
-  if (comma >= 0 && dot >= 0) normalized = comma > dot ? cleaned.replace(/\\./g, "").replace(",", ".") : cleaned.replace(/,/g, "");
+  if (comma >= 0 && dot >= 0) normalized = comma > dot ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned.replace(/,/g, "");
   else if (comma >= 0) normalized = cleaned.replace(",", ".");
-  else if (/^\\d{1,3}(?:\\.\\d{3})+$/.test(cleaned)) normalized = cleaned.replace(/\\./g, "");
+  else if (/^\d{1,3}(?:\.\d{3})+$/.test(cleaned)) normalized = cleaned.replace(/\./g, "");
   const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
 }
 
 function findNear(text, label, regex, maxDistance = 900) {
   const matches = [];
-  const re = new RegExp(label.source, label.flags.includes("g") ? label.flags : `${label.flags}g`);
+  const flags = label.flags.includes("g") ? label.flags : `${label.flags}g`;
+  const re = new RegExp(label.source, flags);
   let match;
   while ((match = re.exec(text))) {
     const window = text.slice(match.index, match.index + maxDistance);
@@ -62,23 +63,24 @@ function findNear(text, label, regex, maxDistance = 900) {
 }
 
 export function extractPrices(text, energy) {
-  const normalized = text.replace(/\\u00a0/g, " ");
+  const normalized = text.replace(/\u00a0/g, " ");
   const workCandidates = findNear(
     normalized,
-    /(?:Arbeitspreis|Verbrauchspreis|Verbrauchskosten|Preis\\s*pro\\s*kWh)/i,
-    /([0-9]{1,3}(?:[,.][0-9]{1,3})?)\\s*(?:ct|cent|€-cent)\\s*(?:\\/|pro)?\\s*kWh/i,
+    /(?:Arbeitspreis|Verbrauchspreis|Verbrauchskosten|Preis\s*pro\s*kWh)/i,
+    /([0-9]{1,3}(?:[,.][0-9]{1,3})?)\s*(?:ct|cent|€-cent)\s*(?:\/|pro)?\s*kWh/i,
   ).filter((n) => n >= 5 && n <= 100);
   const baseCandidates = findNear(
     normalized,
     /(?:Grundpreis|Grundgebühr|Fixkosten)/i,
-    /([0-9]{1,5}(?:[,.][0-9]{1,2})?)\\s*(?:€|EUR)\\s*(?:\\/\\s*(?:Monat|Jahr)|pro\\s+(?:Monat|Jahr)|jährlich|monatlich)/i,
+    /([0-9]{1,5}(?:[,.][0-9]{1,2})?)\s*(?:€|EUR)\s*(?:\/\s*(?:Monat|Jahr)|pro\s+(?:Monat|Jahr)|jährlich|monatlich)/i,
   ).filter((n) => n >= 1 && n <= 10000);
 
   const workPriceCt = workCandidates.length ? workCandidates[0] : null;
   let basePriceYear = null;
   if (baseCandidates.length) {
     const raw = baseCandidates[0];
-    const context = normalized.match(new RegExp(`(?:Grundpreis|Grundgebühr|Fixkosten)[\\s\\S]{0,180}?${raw.toString().replace(".", "\\.")}`, "i"));
+    const rawText = String(raw).replace(".", "\\.");
+    const context = normalized.match(new RegExp(`(?:Grundpreis|Grundgebühr|Fixkosten)[\\s\\S]{0,180}?${rawText}`, "i"));
     basePriceYear = context && /Monat|monatlich/i.test(context[0]) ? raw * 12 : raw;
   }
   if (workPriceCt === null || basePriceYear === null) return null;
@@ -86,7 +88,7 @@ export function extractPrices(text, energy) {
 }
 
 export function extractValidDate(text) {
-  const dates = [...text.matchAll(/(?:gültig|gültig ab|Preisstand|Stand)[^\\d]{0,30}(\\d{1,2})[.\\/]?(\\d{1,2})?[.\\/]?(20\\d{2})/gi)];
+  const dates = [...text.matchAll(/(?:gültig|gültig ab|Preisstand|Stand)[^\d]{0,30}(\d{1,2})[.\/]?(\d{1,2})?[.\/]?(20\d{2})/gi)];
   if (!dates.length) return null;
   const m = dates[0];
   const month = m[2] ? String(Number(m[2])).padStart(2, "0") : "01";
@@ -100,7 +102,7 @@ export async function checkCompliance(provider) {
   try {
     const robots = await fetchText(robotsUrl, { accept: "text/plain,*/*" });
     result.robotsFetched = true;
-    const blocks = robots.split(/\\n/).map((line) => line.trim());
+    const blocks = robots.split(/\n/).map((line) => line.trim());
     let applies = false;
     let disallowAll = false;
     for (const line of blocks) {
@@ -132,7 +134,7 @@ export async function checkCompliance(provider) {
 export function normalizeOffer(provider, energy, prices, text, sourceUrl, compliance) {
   const now = new Date().toISOString();
   return {
-    id: `${provider.id}-${energy}-${new Date().toISOString().slice(0, 10)}`,
+    id: `${provider.id}-${energy}-${now.slice(0, 10)}`,
     provider: provider.name,
     providerId: provider.id,
     tariffName: provider.tariffNames?.[energy] || `${provider.name} Referenztarif`,
@@ -140,7 +142,7 @@ export function normalizeOffer(provider, energy, prices, text, sourceUrl, compli
     workPriceCt: prices.workPriceCt,
     basePriceYear: prices.basePriceYear,
     minConsumptionKwh: energy === "strom" ? 500 : 1000,
-    maxConsumptionKwh: energy === "strom" ? 100000 : 100000,
+    maxConsumptionKwh: 100000,
     availability: "nationwide_unverified",
     validFrom: extractValidDate(text),
     sourceUrl,
@@ -154,5 +156,5 @@ export function normalizeOffer(provider, energy, prices, text, sourceUrl, compli
 
 export async function writeJson(file, value) {
   await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, `${JSON.stringify(value, null, 2)}\\n`, "utf8");
+  await fs.writeFile(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
