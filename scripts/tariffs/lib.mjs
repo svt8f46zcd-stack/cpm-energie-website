@@ -46,40 +46,40 @@ function numberFrom(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function findNear(text, label, regex, maxDistance = 1600) {
+function collectNear(text, label, valueRegex, maxDistance = 2400) {
   const matches = [];
   const flags = label.flags.includes("g") ? label.flags : `${label.flags}g`;
   const re = new RegExp(label.source, flags);
   let match;
   while ((match = re.exec(text))) {
     const window = text.slice(match.index, match.index + maxDistance);
-    const hit = window.match(regex);
-    if (hit) matches.push(numberFrom(hit[1]));
+    const hit = window.match(valueRegex);
+    if (hit) {
+      const value = numberFrom(hit[1]);
+      if (value !== null) matches.push(value);
+    }
   }
-  return matches.filter((n) => n !== null);
+  return matches;
 }
 
 export function extractPrices(source, energy) {
   const normalized = source.replace(/\u00a0/g, " ").replace(/&nbsp;/gi, " ");
-  const workCandidates = findNear(
+  const workCandidates = collectNear(
     normalized,
     /(?:Arbeitspreis|Verbrauchspreis|Verbrauchskosten|Preis\s*pro\s*kWh|ct\s*\/\s*kWh)/i,
     /([0-9]{1,3}(?:[,.][0-9]{1,3})?)\s*(?:ct|cent|€-cent)\s*(?:\/|pro)?\s*kWh/i,
-  ).filter((n) => n >= 5 && n <= 100);
-  const baseCandidates = findNear(
+  ).filter((n) => n >= 20 && n <= 50);
+  const baseCandidates = collectNear(
     normalized,
     /(?:Grundpreis|Grundgebühr|Fixkosten)/i,
     /([0-9]{1,5}(?:[,.][0-9]{1,2})?)\s*(?:€|EUR|&euro;)\s*(?:\/\s*(?:Monat|Jahr)|pro\s+(?:Monat|Jahr)|jährlich|monatlich)/i,
-  ).filter((n) => n >= 1 && n <= 10000);
+  ).filter((n) => n >= 5 && n <= 300);
+  if (!workCandidates.length || !baseCandidates.length) return null;
 
-  const workPriceCt = workCandidates.length ? Math.min(...workCandidates.filter((n) => n >= 10 && n <= 80)) : null;
-  let basePriceYear = null;
-  if (baseCandidates.length) {
-    const raw = baseCandidates[0];
-    const context = normalized.match(new RegExp(`(?:Grundpreis|Grundgebühr|Fixkosten)[\s\S]{0,240}?${String(raw).replace(".", "\\.")}`, "i"));
-    basePriceYear = context && /Monat|monatlich/i.test(context[0]) ? raw * 12 : raw;
-  }
-  if (workPriceCt === null || basePriceYear === null) return null;
+  const workPriceCt = Math.min(...workCandidates);
+  const rawBase = baseCandidates[0];
+  const basePriceYear = rawBase <= 25 ? rawBase * 12 : rawBase;
+  if (workPriceCt < 20 || workPriceCt > 50 || basePriceYear < 60 || basePriceYear > 300) return null;
   return { energyType: energy, workPriceCt: Number(workPriceCt.toFixed(3)), basePriceYear: Number(basePriceYear.toFixed(2)) };
 }
 
