@@ -1,12 +1,14 @@
-name: Deploy Next.js site to GitHub Pages
+name: Deploy CPM Energie to GitHub Pages
 
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -14,34 +16,84 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  GITHUB_PAGES: "true"
+  NEXT_PUBLIC_GITHUB_PAGES: "true"
+  NEXT_PUBLIC_SPLINE_SCENE_URL: ${{ vars.CPM_SPLINE_SCENE_URL }}
+  SITE_BASE: https://svt8f46zcd-stack.github.io/cpm-energie-website
+  SITE_URLS: |
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/kontakt/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/ersparnisrechner/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/tarifrechner/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/so-funktionierts/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/ueber-mich/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/impressum/
+    https://svt8f46zcd-stack.github.io/cpm-energie-website/datenschutz/
+
 jobs:
   build:
+    if: github.event_name != 'push' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - name: Setup Pages
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies and refresh lockfile
+        run: npm install --ignore-scripts --no-audit --no-fund
 
-      - name: Build
-        run: npm run build
+      - name: Commit refreshed lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: synchronize package lockfile"
+          git push
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Fetch official tariff prices
+        run: npm run tariffs:fetch
+
+      - name: Commit refreshed tariff dataset
+        run: |
+          if git diff --quiet -- data/tariffs-live.json; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/tariffs-live.json
+          git commit -m "chore: refresh automated tariff data"
+          git push
+
+      - name: Build GitHub Pages export
+        run: |
+          set -euo pipefail
+          rm -rf out
+          npm run build
+          touch out/.nojekyll
+          test -s out/index.html
+          test -d out/_next
+          test -f out/.nojekyll
+          test -s out/404.html
+          cp out/index.html out/404.html
+          cmp -s out/index.html out/404.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./out
 
   deploy:
+    if: github.event_name != 'push' || github.actor != 'github-actions[bot]'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
