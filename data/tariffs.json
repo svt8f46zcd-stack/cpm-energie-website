@@ -1,0 +1,44 @@
+[
+  {
+    "id": "enbw-komfort-strom-gv-2026",
+    "energyType": "strom",
+    "provider": "EnBW",
+    "tariffName": "EnBW Komfort Grundversorgung",
+    "workPriceCt": 35.37,
+    "basePriceYear": 202.63,
+    "validFrom": "2026-01-01",
+    "scope": "Grundversorgung",
+    "availability": "regional",
+    "source": "https://www.enbw.com/strom/privatkunden/grund-ersatzversorgung/produkte",
+    "sourceLabel": "EnBW Preisübersicht",
+    "note": "Öffentlich veröffentlichter Bruttopreis. Verfügbarkeit hängt vom örtlichen Grundversorger ab."
+  },
+  {
+    "id": "pfalzgas-heizgas-gv-2026",
+    "energyType": "gas",
+    "provider": "Pfalzgas",
+    "tariffName": "Pfalzgas Heizgas Grundversorgung",
+    "workPriceCt": 11.484,
+    "basePriceYear": 157.08,
+    "validFrom": "2026-01-01",
+    "scope": "Grundversorgung",
+    "availability": "regional",
+    "source": "https://www.pfalzgas.de/preise-und-produkte/grund-und-ersatzversorgung/",
+    "sourceLabel": "Pfalzgas Preisübersicht",
+    "note": "Öffentlich veröffentlichter Bruttopreis für Heizgas. Verfügbarkeit hängt vom Netzgebiet ab."
+  },
+  {
+    "id": "swu-erdgas-gv-2026",
+    "energyType": "gas",
+    "provider": "SWU Energie",
+    "tariffName": "SWU Erdgas Grundversorgung",
+    "workPriceCt": 12.42,
+    "basePriceYear": 134.32,
+    "validFrom": "2026-02-01",
+    "scope": "Grundversorgung",
+    "availability": "regional",
+    "source": "https://www.swu.de/privatkunden/service/gas/preise-grundversorgung-und-ersatzversorgung-gas",
+    "sourceLabel": "SWU Preisübersicht",
+    "note": "Öffentlich veröffentlichter Bruttopreis für die Verbrauchsstufe ab 5.789 kWh. Verfügbarkeit hängt vom Netzgebiet und Verbrauch ab."
+  }
+]
