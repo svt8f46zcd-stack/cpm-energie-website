@@ -1,0 +1,31 @@
+import { checkCompliance, extractPrices, fetchText, htmlToText, normalizeOffer } from "../lib.mjs";
+
+export const provider = {
+  id: "enbw",
+  name: "EnBW",
+  baseUrl: "https://www.enbw.com",
+  agbUrl: "https://www.enbw.com/service/agb",
+  partner: false,
+  tariffNames: { strom: "EnBW Strom Referenztarif", gas: "EnBW Gas Referenztarif" },
+  sources: {
+    strom: "https://www.enbw.com/strom/privatkunden/produkte",
+    gas: "https://www.enbw.com/gas/privatkunden/produkte",
+  },
+};
+
+export async function parse() {
+  const compliance = await checkCompliance(provider);
+  if (!compliance.eligible) return { provider, compliance, offers: [] };
+  const offers = [];
+  for (const energy of ["strom", "gas"]) {
+    try {
+      const html = await fetchText(provider.sources[energy]);
+      const text = htmlToText(html);
+      const prices = extractPrices(text, energy);
+      if (prices) offers.push(normalizeOffer(provider, energy, prices, text, provider.sources[energy], compliance));
+    } catch (error) {
+      console.warn(`[enbw:${energy}] ${error.message}`);
+    }
+  }
+  return { provider, compliance, offers };
+}
