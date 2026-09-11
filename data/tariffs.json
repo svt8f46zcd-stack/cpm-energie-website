@@ -9,6 +9,8 @@
     "validFrom": "2026-01-01",
     "scope": "Grundversorgung",
     "availability": "regional",
+    "minConsumptionKwh": 0,
+    "maxConsumptionKwh": 100000,
     "source": "https://www.enbw.com/strom/privatkunden/grund-ersatzversorgung/produkte",
     "sourceLabel": "EnBW Preisübersicht",
     "note": "Öffentlich veröffentlichter Bruttopreis. Verfügbarkeit hängt vom örtlichen Grundversorger ab."
@@ -23,9 +25,11 @@
     "validFrom": "2026-01-01",
     "scope": "Grundversorgung",
     "availability": "regional",
+    "minConsumptionKwh": 0,
+    "maxConsumptionKwh": 5788,
     "source": "https://www.pfalzgas.de/preise-und-produkte/grund-und-ersatzversorgung/",
     "sourceLabel": "Pfalzgas Preisübersicht",
-    "note": "Öffentlich veröffentlichter Bruttopreis für Heizgas. Verfügbarkeit hängt vom Netzgebiet ab."
+    "note": "Öffentlich veröffentlichter Bruttopreis. Verfügbarkeit hängt vom Netzgebiet und der Verbrauchsstufe ab."
   },
   {
     "id": "swu-erdgas-gv-2026",
@@ -37,6 +41,8 @@
     "validFrom": "2026-02-01",
     "scope": "Grundversorgung",
     "availability": "regional",
+    "minConsumptionKwh": 5789,
+    "maxConsumptionKwh": 100000,
     "source": "https://www.swu.de/privatkunden/service/gas/preise-grundversorgung-und-ersatzversorgung-gas",
     "sourceLabel": "SWU Preisübersicht",
     "note": "Öffentlich veröffentlichter Bruttopreis für die Verbrauchsstufe ab 5.789 kWh. Verfügbarkeit hängt vom Netzgebiet und Verbrauch ab."
