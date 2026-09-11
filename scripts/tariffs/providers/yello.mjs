@@ -1,0 +1,31 @@
+import { checkCompliance, extractPrices, fetchText, htmlToText, normalizeOffer } from "../lib.mjs";
+
+export const provider = {
+  id: "yello",
+  name: "Yello",
+  baseUrl: "https://www.yello.de",
+  agbUrl: "https://www.yello.de/agb/strom/",
+  partner: false,
+  tariffNames: { strom: "Yello Strom Referenztarif", gas: "Yello Gas Referenztarif" },
+  sources: {
+    strom: "https://www.yello.de/strom/stromtarife/",
+    gas: "https://www.yello.de/gas/gastarife/",
+  },
+};
+
+export async function parse() {
+  const compliance = await checkCompliance(provider);
+  if (!compliance.eligible) return { provider, compliance, offers: [] };
+  const offers = [];
+  for (const energy of ["strom", "gas"]) {
+    try {
+      const html = await fetchText(provider.sources[energy]);
+      const text = htmlToText(html);
+      const prices = extractPrices(text, energy);
+      if (prices) offers.push(normalizeOffer(provider, energy, prices, text, provider.sources[energy], compliance));
+    } catch (error) {
+      console.warn(`[yello:${energy}] ${error.message}`);
+    }
+  }
+  return { provider, compliance, offers };
+}
