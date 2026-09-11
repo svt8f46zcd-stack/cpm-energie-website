@@ -4,6 +4,125 @@ premiumStyle.rel = 'stylesheet';
 premiumStyle.href = './premium.css';
 document.head.appendChild(premiumStyle);
 
+/* Mobile first polish: loaded after the base stylesheet so the responsive rules win. */
+const mobileStyle = document.createElement('style');
+mobileStyle.textContent = `
+@media (max-width: 760px) {
+  html { scroll-padding-top: 68px; }
+  body { overflow-x: hidden; }
+  .container { width: min(100% - 28px, 560px); }
+  .header-inner { height: 64px; gap: 10px; }
+  .logo { gap: 6px; }
+  .logo-cpm { font-size: 20px; }
+  .logo-energy { font-size: 9px; letter-spacing: .16em; }
+  .nav { display: none; }
+  .nav-cta { padding: 10px 12px; min-height: 42px; border-radius: 11px; font-size: 11px; white-space: nowrap; }
+  .hero-inner { display: flex; flex-direction: column; align-items: stretch; gap: 24px; min-height: 0; padding-top: 34px; padding-bottom: 42px; }
+  .hero-copy { padding: 0 4px; }
+  .eyebrow { font-size: 9px; letter-spacing: .14em; }
+  .hero h1 { margin-top: 15px; font-size: clamp(42px, 13vw, 58px); line-height: .96; letter-spacing: -.06em; }
+  .hero-lead { margin-top: 18px; font-size: 14px; line-height: 1.6; color: #aebed0; }
+  .hero-points { grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 22px; }
+  .hero-points div { min-width: 0; padding: 12px 7px 12px 0; display: block; }
+  .hero-points div:not(:first-child) { padding-left: 8px; border-left: 1px solid var(--line); }
+  .hero-points b, .hero-points span { display: block; }
+  .hero-points b { margin-bottom: 5px; font-size: 9px; }
+  .hero-points span { font-size: 10px; line-height: 1.25; }
+  .security-note { margin-top: 16px; gap: 9px; }
+  .security-icon { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; }
+  .security-note strong { font-size: 11px; }
+  .security-note small { font-size: 9px; }
+  .check-card { width: 100%; border-radius: 20px; box-shadow: 0 24px 65px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.08); }
+  .card-header { padding: 19px 17px 16px; gap: 10px; }
+  .card-overline { font-size: 8px; letter-spacing: .13em; }
+  .card-header h2 { font-size: 21px; }
+  .secure-badge { padding: 6px 8px; font-size: 9px; }
+  .progress-area { padding: 14px 17px 0; }
+  .progress-info { font-size: 10px; }
+  .step-labels { font-size: 8px; letter-spacing: .04em; }
+  .check-card form { padding: 19px 17px 20px; }
+  .step-title { gap: 10px; margin-bottom: 20px; }
+  .step-title > span { width: 33px; height: 33px; flex-basis: 33px; border-radius: 10px; }
+  .step-title h3 { font-size: 17px; }
+  .step-title p { font-size: 11px; line-height: 1.45; }
+  .field { margin-bottom: 15px; }
+  .field label, .field-label { margin-bottom: 6px; font-size: 10px; }
+  .field input, .field select { height: 56px; min-height: 56px; border-radius: 12px; font-size: 16px; }
+  .input-box input { padding-left: 38px; }
+  .input-box input { padding-right: 78px; }
+  .input-symbol { left: 12px; }
+  .input-unit { right: 12px; font-size: 9px; }
+  .hint { padding: 11px 12px; gap: 8px; }
+  .hint p { font-size: 9px; line-height: 1.45; }
+  .primary-btn, .secondary-btn { min-height: 56px; border-radius: 12px; font-size: 12px; touch-action: manipulation; }
+  .button-row { grid-template-columns: 1fr; gap: 8px; }
+  .button-row .primary-btn { order: 1; }
+  .button-row .secondary-btn { order: 2; }
+  .microcopy { font-size: 8px; line-height: 1.45; }
+  .two-col { grid-template-columns: 1fr; gap: 0; }
+  .consent-card { margin-top: 9px; padding: 11px; gap: 9px; }
+  .consent-card strong { font-size: 10px; }
+  .consent-card small { font-size: 8px; }
+  .custom-check { width: 20px; height: 20px; flex-basis: 20px; }
+  .privacy-row { align-items: flex-start; font-size: 9px; line-height: 1.45; }
+  .trust-inner { grid-template-columns: 1fr 1fr; padding-top: 8px; padding-bottom: 8px; }
+  .trust-inner > div, .trust-inner > div:first-child { padding: 10px 9px; border-right: 0; border-bottom: 1px solid #e6edf2; }
+  .trust-inner > div:nth-child(odd) { border-right: 1px solid #e6edf2; }
+  .trust-inner > div:nth-child(3), .trust-inner > div:nth-child(4) { border-bottom: 0; }
+  .trust-inner span { width: 28px; height: 28px; font-size: 11px; }
+  .trust-inner strong { font-size: 9px; }
+  .trust-inner small { font-size: 8px; line-height: 1.3; }
+  .section-inner { padding-top: 58px; padding-bottom: 58px; }
+  .section-heading h2, .personal-grid h2 { font-size: clamp(31px, 9vw, 42px); }
+  .section-heading p { margin-top: 15px; font-size: 13px; line-height: 1.65; }
+  .process-grid { grid-template-columns: 1fr; gap: 11px; margin-top: 28px; }
+  .process-grid article { min-height: 0; padding: 20px; border-radius: 17px; }
+  .process-grid article h3 { margin-top: 17px; font-size: 17px; }
+  .process-grid article p { font-size: 12px; line-height: 1.55; }
+  .transparency-layout, .personal-grid { grid-template-columns: 1fr; gap: 25px; }
+  .dark-section h2 { font-size: clamp(30px, 8.5vw, 40px); line-height: 1.05; }
+  .dark-section p { font-size: 13px; line-height: 1.65; }
+  .tariff-card { padding: 15px; border-radius: 17px; }
+  .tariff-item { padding: 12px 0; gap: 9px; }
+  .tariff-item > div { min-width: 0; }
+  .tariff-item strong { font-size: 11px; }
+  .tariff-item small { font-size: 8px; }
+  .tariff-item > b { font-size: 9px; white-space: nowrap; }
+  .person-card { min-height: 220px; }
+  .person-points { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .outline-btn { width: 100%; justify-content: center; min-height: 54px; }
+  .faq-grid { grid-template-columns: 1fr; gap: 9px; }
+  .faq-grid details { padding: 16px; border-radius: 14px; }
+  .faq-grid summary { font-size: 12px; line-height: 1.4; }
+  .faq-grid details p { font-size: 11px; line-height: 1.55; }
+  .final-section { padding: 66px 0; }
+  .final-inner h2 { font-size: clamp(34px, 10vw, 48px); }
+  .final-inner p { font-size: 13px; line-height: 1.6; }
+  .final-btn { width: 100%; }
+  .privacy { padding: 48px 0; }
+  .privacy h2 { font-size: 28px; }
+  .privacy p { font-size: 11px; line-height: 1.6; }
+  .hero-grid { background-size: 44px 44px; }
+  .orb-a { width: 360px; height: 360px; right: -210px; top: -150px; }
+  .orb-b { width: 280px; height: 280px; left: -190px; bottom: -160px; }
+}
+
+@media (max-width: 380px) {
+  .container { width: calc(100% - 22px); }
+  .nav-cta { padding-inline: 9px; font-size: 10px; }
+  .hero h1 { font-size: 40px; }
+  .hero-points span { font-size: 9px; }
+  .card-header h2 { font-size: 19px; }
+  .check-card form { padding-inline: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+`;
+document.head.appendChild(mobileStyle);
+
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/REPLACE_WITH_FORM_ID';
 const form = document.querySelector('#lead-form');
 const steps = [...document.querySelectorAll('.step')];
