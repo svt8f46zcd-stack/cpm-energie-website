@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { CTASection } from "@/components/CTASection";
 import { BillFeatures } from "@/components/BillFeatures";
 import { BillFlow } from "@/components/BillFlow";
@@ -46,7 +47,7 @@ export default function Home() {
 
           <div className="cpm-contact-trust">
             <div><strong>Lieber direkt sprechen?</strong><span>Keine Warteschleife, kein anonymer Chat.</span></div>
-            <div className="cpm-contact-actions"><a href="tel:+4917661077323">0176 61077323</a><a href="https://wa.me/4917661077323" target="_blank" rel="noopener noreferrer">WhatsApp</a></div>
+            <div className="cpm-contact-actions"><a href="tel:+4917661077323">0176 61077323</a><a href="https://wa.me/4917661077323" target="_blank" rel="noopener noreferrer">WhatsApp</a><Link href="/stromvergleich/">Stromkosten prüfen</Link></div>
           </div>
         </div>
       </section>
@@ -78,7 +79,7 @@ export default function Home() {
 
       <section className="cpm-section" aria-labelledby="personal-heading"><div className="container"><div className="grid items-center gap-12 md:grid-cols-[.8fr_1.2fr] md:gap-20"><div className="mx-auto w-full max-w-[380px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1117] shadow-2xl shadow-black/30"><div className="aspect-[4/5] overflow-hidden bg-[#0b1117]"><img src={`${BASE}/cristiano.svg`} alt="Cristiano Moreira, persönlicher Ansprechpartner von CPM Energie" width="600" height="900" loading="lazy" className="h-full w-full object-cover object-center" /></div></div><div className="max-w-2xl"><p className="cpm-eyebrow">Persönlich bei Fragen</p><h2 id="personal-heading" className="cpm-section-title">Digital geprüft. Persönlich erklärt.</h2><p className="cpm-section-copy">„Mein Ziel ist nicht, dir einen neuen Vertrag zu verkaufen, sondern dir absolute Klarheit über deine Energiekosten zu geben.“</p><div className="cpm-personal-actions"><a href="tel:+4917661077323">Anrufen</a><a href="https://wa.me/4917661077323" target="_blank" rel="noopener noreferrer">WhatsApp</a><a href={`${BASE}/kontakt/`}>Kontakt</a></div></div></div></div></section>
 
-      <section className="cpm-section pt-0" aria-label="Abschluss"><div className="container"><div className="cpm-final-cta"><p className="cpm-eyebrow">Der nächste Schritt</p><h2 className="mt-3">Mach aus deiner Rechnung eine klare Entscheidungsgrundlage.</h2><p>Lade deine letzte Strom- oder Gasrechnung hoch und starte die Prüfung kostenlos und unverbindlich.</p><div className="cpm-decision-strip"><span><b>✓</b> Kostenlos</span><span><b>✓</b> Keine Wechselpflicht</span></div><a href="#rechnung-pruefen">Rechnung prüfen →</a></div></div></section>
+      <section className="cpm-section pt-0" aria-label="Abschluss"><div className="container"><div className="cpm-final-cta"><p className="cpm-eyebrow">Der nächste Schritt</p><h2 className="mt-3">Mach aus deiner Rechnung eine klare Entscheidungsgrundlage.</h2><p>Lade deine letzte Strom- oder Gasrechnung hoch und starte die Prüfung kostenlos und unverbindlich.</p><div className="cpm-decision-strip"><span><b>✓</b> Kostenlos</span><span><b>✓</b> Keine Wechselpflicht</span></div><div className="flex flex-wrap gap-3"><a href="#rechnung-pruefen">Rechnung prüfen →</a><Link href="/stromvergleich/">Stromkosten prüfen →</Link></div></div></div></section>
 
       <CTASection />
     </>
