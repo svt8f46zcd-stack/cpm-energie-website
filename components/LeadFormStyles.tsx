@@ -1,3 +1,5 @@
+"use client";
+
 export default function LeadFormStyles() {
   return <style jsx global>{`
     .lead-input {
