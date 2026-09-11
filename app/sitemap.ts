@@ -2,11 +2,7 @@ import type { MetadataRoute } from "next";
 
 export const dynamic = "force-static";
 
-const isGitHubPages = process.env.GITHUB_PAGES === "true";
-
 export default function sitemap(): MetadataRoute.Sitemap {
-  if (isGitHubPages) return [];
-
   const base = "https://cpm-energie.de";
   return [
     "/",
@@ -14,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/so-funktionierts",
     "/ueber-mich",
     "/kontakt",
+    "/kontakt/rechnung",
     "/impressum",
     "/datenschutz",
   ].map((path) => ({
