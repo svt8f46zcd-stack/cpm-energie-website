@@ -90,6 +90,13 @@ jobs:
             test -s "out/$route"
           done
 
+          # GitHub Pages project sites have no server side rewrite rules.
+          # The homepage therefore becomes the fallback document for requests
+          # that GitHub Pages cannot map directly to a static file.
+          cp out/index.html out/404.html
+          cmp -s out/index.html out/404.html
+          echo "GitHub Pages fallback enabled: out/404.html -> out/index.html"
+
           if grep -qi 'noindex' out/index.html; then
             echo "ERROR: live page contains noindex"
             exit 1
