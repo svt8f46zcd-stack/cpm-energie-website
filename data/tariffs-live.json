@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-11T21:27:58.619Z",
+  "generatedAt": "2026-09-11T21:31:04.918Z",
   "method": "official-public-source-scrape",
   "marketCoverage": "selected-provider-set",
   "disclaimer": "Unverbindliche Beispielrechnung. Dieses Dataset ist keine vollständige Marktübersicht. PLZ-spezifische Verfügbarkeit, Boni, Netzentgelte und Vertragsbedingungen müssen vor Abschluss geprüft werden.",
@@ -17,7 +17,7 @@
         "gas": "https://www.vattenfall.de/gas/gastarife"
       },
       "agbUrl": "https://www.vattenfall.de/agb",
-      "lastRun": "2026-09-11T21:27:51.885Z",
+      "lastRun": "2026-09-11T21:30:58.494Z",
       "offersFound": 0,
       "error": null
     },
@@ -33,7 +33,7 @@
         "gas": "https://www.lichtblick.de/gas/"
       },
       "agbUrl": "https://www.lichtblick.de/veroeffentlichungen/",
-      "lastRun": "2026-09-11T21:27:53.194Z",
+      "lastRun": "2026-09-11T21:30:59.808Z",
       "offersFound": 0,
       "error": null
     },
@@ -49,7 +49,7 @@
         "gas": "https://www.eon.de/de/pk/gas.html"
       },
       "agbUrl": "https://www.eon.de/de/pk/agb.html",
-      "lastRun": "2026-09-11T21:27:53.360Z",
+      "lastRun": "2026-09-11T21:30:59.938Z",
       "offersFound": 0,
       "error": "robots_error:HTTP_403 https://www.eon.de/robots.txt"
     },
@@ -65,7 +65,7 @@
         "gas": "https://www.enbw.com/gas/privatkunden/produkte"
       },
       "agbUrl": "https://www.enbw.com/service/agb",
-      "lastRun": "2026-09-11T21:27:55.944Z",
+      "lastRun": "2026-09-11T21:31:02.578Z",
       "offersFound": 0,
       "error": null
     },
@@ -81,7 +81,7 @@
         "gas": "https://www.yello.de/gas/gastarife/"
       },
       "agbUrl": "https://www.yello.de/agb/strom/",
-      "lastRun": "2026-09-11T21:27:58.619Z",
+      "lastRun": "2026-09-11T21:31:04.918Z",
       "offersFound": 0,
       "error": null
     }
