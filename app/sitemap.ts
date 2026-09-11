@@ -7,6 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     "/",
     "/ersparnisrechner",
+    "/tarifrechner",
     "/so-funktionierts",
     "/ueber-mich",
     "/kontakt",
@@ -15,7 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/datenschutz",
   ].map((path) => ({
     url: `${base}${path}/`,
-    changeFrequency: "monthly",
-    priority: path === "/" ? 1 : 0.7,
+    changeFrequency: path === "/tarifrechner" ? "weekly" : "monthly",
+    priority: path === "/" ? 1 : path === "/tarifrechner" ? 0.9 : 0.7,
   }));
 }
