@@ -67,7 +67,6 @@ jobs:
           rm -rf out
           npm run build
 
-          # GitHub Pages must not run Jekyll over the static export.
           touch out/.nojekyll
 
           test -s out/index.html
@@ -80,6 +79,7 @@ jobs:
           for route in \
             index.html \
             kontakt/index.html \
+            kontakt/rechnung/index.html \
             ersparnisrechner/index.html \
             so-funktionierts/index.html \
             ueber-mich/index.html \
@@ -88,18 +88,23 @@ jobs:
             test -s "out/$route"
           done
 
-          grep -q 'noindex, nofollow' out/index.html
-          grep -q 'Testversion' out/index.html
-          grep -q 'Disallow: /' out/robots.txt
-
-          if grep -q 'https://cpm-energie.de/sitemap.xml' out/robots.txt; then
-            echo "GitHub Pages robots.txt must not advertise a sitemap"
+          if grep -qi 'noindex' out/index.html; then
+            echo "ERROR: live page contains noindex"
             exit 1
           fi
 
+          if grep -q 'Testversion' out/index.html; then
+            echo "ERROR: live page contains test banner"
+            exit 1
+          fi
+
+          grep -q 'Allow: /' out/robots.txt
+          grep -q 'https://cpm-energie.de/sitemap.xml' out/robots.txt
+          grep -q 'https://cpm-energie.de/' out/sitemap.xml
+
           echo "===== STATIC EXPORT TREE ====="
           find out -maxdepth 3 -type f | sort
-          echo "===== GITHUB PAGES EXPORT AUDIT PASSED ====="
+          echo "===== LIVE EXPORT AUDIT PASSED ====="
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
@@ -129,17 +134,15 @@ jobs:
           done <<< "$SITE_URLS"
 
           html="$(curl -fsSL --max-time 30 -H 'Cache-Control: no-cache' "$SITE_BASE/?cb=$(date +%s%N)")"
-          grep -q 'Testversion' <<< "$html"
-          grep -q 'noindex, nofollow' <<< "$html"
+          if grep -qi 'noindex' <<< "$html"; then failed=1; fi
+          if grep -q 'Testversion' <<< "$html"; then failed=1; fi
 
           robots="$(curl -fsSL --max-time 30 "$SITE_BASE/robots.txt?cb=$(date +%s%N)")"
-          grep -q 'Disallow: /' <<< "$robots"
+          grep -q 'Allow: /' <<< "$robots"
+          grep -q 'https://cpm-energie.de/sitemap.xml' <<< "$robots"
 
           sitemap="$(curl -fsSL --max-time 30 "$SITE_BASE/sitemap.xml?cb=$(date +%s%N)")"
-          if grep -q '<url>' <<< "$sitemap"; then
-            echo "GitHub Pages sitemap must not contain URL entries"
-            failed=1
-          fi
+          grep -q 'https://cpm-energie.de/' <<< "$sitemap"
 
           if [ "$failed" -ne 0 ]; then
             echo "PROJECT SITE VERIFICATION FAILED"
