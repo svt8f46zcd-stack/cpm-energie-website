@@ -46,6 +46,15 @@ function numberFrom(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+export function validateTariffPrices(workPriceCt, basePriceYear, energy = "strom") {
+  const workMin = energy === "gas" ? 5 : 20;
+  const workMax = energy === "gas" ? 20 : 50;
+  const baseMin = 60;
+  const baseMax = 300;
+  const valid = Number.isFinite(workPriceCt) && Number.isFinite(basePriceYear) && workPriceCt >= workMin && workPriceCt <= workMax && basePriceYear >= baseMin && basePriceYear <= baseMax;
+  return { valid, workMin, workMax, baseMin, baseMax };
+}
+
 function collectNear(text, label, valueRegex, maxDistance = 2400) {
   const matches = [];
   const flags = label.flags.includes("g") ? label.flags : `${label.flags}g`;
@@ -64,23 +73,13 @@ function collectNear(text, label, valueRegex, maxDistance = 2400) {
 
 export function extractPrices(source, energy) {
   const normalized = source.replace(/\u00a0/g, " ").replace(/&nbsp;/gi, " ");
-  const workCandidates = collectNear(
-    normalized,
-    /(?:Arbeitspreis|Verbrauchspreis|Verbrauchskosten|Preis\s*pro\s*kWh|ct\s*\/\s*kWh)/i,
-    /([0-9]{1,3}(?:[,.][0-9]{1,3})?)\s*(?:ct|cent|€-cent)\s*(?:\/|pro)?\s*kWh/i,
-  ).filter((n) => n >= 20 && n <= 50);
-  const baseCandidates = collectNear(
-    normalized,
-    /(?:Grundpreis|Grundgebühr|Fixkosten)/i,
-    /([0-9]{1,5}(?:[,.][0-9]{1,2})?)\s*(?:€|EUR|&euro;)\s*(?:\/\s*(?:Monat|Jahr)|pro\s+(?:Monat|Jahr)|jährlich|monatlich)/i,
-  ).filter((n) => n >= 5 && n <= 300);
+  const workCandidates = collectNear(normalized, /(?:Arbeitspreis|Verbrauchspreis|Verbrauchskosten|Preis\s*pro\s*kWh|ct\s*\/\s*kWh)/i, /([0-9]{1,3}(?:[,.][0-9]{1,3})?)\s*(?:ct|cent|€-cent)\s*(?:\/|pro)?\s*kWh/i).filter((n) => n >= 20 && n <= 50);
+  const baseCandidates = collectNear(normalized, /(?:Grundpreis|Grundgebühr|Fixkosten)/i, /([0-9]{1,5}(?:[,.][0-9]{1,2})?)\s*(?:€|EUR|&euro;)\s*(?:\/\s*(?:Monat|Jahr)|pro\s+(?:Monat|Jahr)|jährlich|monatlich)/i).filter((n) => n >= 5 && n <= 300);
   if (!workCandidates.length || !baseCandidates.length) return null;
-
   const workPriceCt = Math.min(...workCandidates);
   const rawBase = baseCandidates[0];
   const basePriceYear = rawBase <= 25 ? rawBase * 12 : rawBase;
-  if (workPriceCt < 20 || workPriceCt > 50 || basePriceYear < 60 || basePriceYear > 300) return null;
-  return { energyType: energy, workPriceCt: Number(workPriceCt.toFixed(3)), basePriceYear: Number(basePriceYear.toFixed(2)) };
+  return validateTariffPrices(workPriceCt, basePriceYear, energy).valid ? { energyType: energy, workPriceCt: Number(workPriceCt.toFixed(3)), basePriceYear: Number(basePriceYear.toFixed(2)) } : null;
 }
 
 export function extractValidDate(text) {
@@ -137,6 +136,7 @@ export function normalizeOffer(provider, energy, prices, text, sourceUrl, compli
     energyType: energy,
     workPriceCt: prices.workPriceCt,
     basePriceYear: prices.basePriceYear,
+    monthlyBasePrice: Number((prices.basePriceYear / 12).toFixed(2)),
     minConsumptionKwh: energy === "strom" ? 500 : 1000,
     maxConsumptionKwh: 100000,
     availability: "nationwide_unverified",
