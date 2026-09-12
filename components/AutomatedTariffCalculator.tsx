@@ -4,7 +4,17 @@ import { useMemo, useState } from "react";
 import tariffs from "@/data/tariffs-live.json";
 
 type Energy = "strom" | "gas" | "both";
-type Offer = (typeof tariffs.offers)[number] & {
+type Offer = {
+  id: string;
+  providerId?: string;
+  provider: string;
+  tariffName: string;
+  energyType: string;
+  availability?: string;
+  postalCodes?: string[];
+  sourceLabel: string;
+  basePriceYear: number;
+  workPriceCt: number;
   firstYearPrice?: number;
   monthlyBasePrice?: number;
   bonus?: number;
@@ -31,7 +41,7 @@ function annualComparableCost(offer: Offer, consumption: number) {
 
 function availableForZip(offer: Offer, zip: string) {
   if (offer.availability === "nationwide_verified") return true;
-  if (offer.availability === "postal_codes" && Array.isArray((offer as any).postalCodes)) return (offer as any).postalCodes.includes(zip);
+  if (offer.availability === "postal_codes" && Array.isArray(offer.postalCodes)) return offer.postalCodes.includes(zip);
   return true;
 }
 
@@ -44,7 +54,8 @@ export function AutomatedTariffCalculator() {
   const results = useMemo(() => {
     const normalizedZip = zip.replace(/\D/g, "").slice(0, 5);
     const selected = energy === "both" ? ["strom", "gas"] : [energy];
-    return selected.flatMap((kind) => (tariffs.offers as Offer[])
+    const offers = tariffs.offers as unknown as Offer[];
+    return selected.flatMap((kind) => offers
       .filter((offer) => offer.energyType === kind)
       .filter((offer) => availableForZip(offer, normalizedZip))
       .map((offer) => ({
