@@ -172,7 +172,7 @@ export default function BillUpload({ onContinue, onStatusChange }: BillUploadPro
     <div className="mt-4 text-left">
       <BillDropzone files={files} disabled={status === "analyzing"} error={error} onFiles={mergeFiles} onRemove={removeFile} onRemoveAll={removeAllFiles} />
       <BillAnalysisStatus status={status} onAnalyze={analyzeFiles} disabled={status === "analyzing" || !files.length} fileCount={files.length} error={error} />
-      {analysis && <BillAnalysisResultView analysis={analysis} onContinue={onContinue} />}
+      {analysis && <BillAnalysisResultView analysis={analysis} onSubmitted={onContinue} />}
     </div>
   );
 }
