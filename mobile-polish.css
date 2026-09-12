@@ -1,0 +1,80 @@
+/* CPM Energie mobile visual layer */
+@media (max-width: 760px) {
+  html { scroll-padding-top: 64px; }
+  body { overflow-x: hidden; }
+  .container { width: calc(100% - 24px); max-width: 560px; }
+  .header-inner { height: 64px; gap: 10px; }
+  .logo { gap: 6px; }
+  .logo-cpm { font-size: 20px; }
+  .logo-energy { font-size: 9px; letter-spacing: .15em; }
+  .nav { display: none !important; }
+  .nav-cta { min-height: 42px; padding: 9px 12px; border-radius: 12px; font-size: 10px; white-space: nowrap; }
+  .hero-inner { display: flex; flex-direction: column; gap: 22px; min-height: 0; padding-top: 28px; padding-bottom: 34px; }
+  .hero-copy { padding: 0 2px; }
+  .eyebrow { font-size: 8px; letter-spacing: .13em; }
+  .hero h1 { margin-top: 13px; font-size: clamp(39px, 11.5vw, 52px); line-height: .94; letter-spacing: -.06em; }
+  .hero-lead { margin-top: 16px; max-width: none; font-size: 13px; line-height: 1.55; }
+  .hero-points { margin-top: 18px; }
+  .hero-points div { padding: 10px 6px 10px 0; display: block; }
+  .hero-points div:not(:first-child) { padding-left: 7px; }
+  .hero-points b { display: block; margin-bottom: 4px; font-size: 8px; }
+  .hero-points span { display: block; font-size: 9px; line-height: 1.2; }
+  .security-note { margin-top: 13px; gap: 8px; }
+  .security-icon { width: 28px; height: 28px; flex-basis: 28px; border-radius: 8px; }
+  .security-note strong { font-size: 10px; }
+  .security-note small { font-size: 8px; }
+  .check-card { border-radius: 18px; }
+  .card-header { padding: 16px 15px 14px; }
+  .card-overline { font-size: 7px; letter-spacing: .12em; }
+  .card-header h2 { font-size: 19px; }
+  .secure-badge { padding: 5px 7px; font-size: 8px; }
+  .progress-area { padding: 12px 15px 0; }
+  .step-labels { font-size: 7px; }
+  .check-card form { padding: 17px 15px 18px; }
+  .step-title { gap: 9px; margin-bottom: 17px; }
+  .step-title > span { width: 31px; height: 31px; flex-basis: 31px; border-radius: 9px; }
+  .step-title h3 { font-size: 16px; }
+  .step-title p { font-size: 10px; }
+  .field { margin-bottom: 13px; }
+  .field label { font-size: 9px; margin-bottom: 5px; }
+  .field input, .field select { height: 52px; min-height: 52px; border-radius: 11px; font-size: 16px; }
+  .primary-btn, .secondary-btn { min-height: 52px; border-radius: 11px; font-size: 11px; }
+  .button-row { grid-template-columns: 1fr; gap: 7px; }
+  .button-row .primary-btn { order: 1; }
+  .button-row .secondary-btn { order: 2; }
+  .microcopy { font-size: 7px; }
+  .trust-inner { grid-template-columns: 1fr 1fr; }
+  .trust-inner > div { padding: 9px 7px !important; }
+  .trust-inner strong { font-size: 8px; }
+  .trust-inner small { font-size: 7px; }
+  .section-inner { padding-top: 52px; padding-bottom: 52px; }
+  .section-heading h2, .personal-grid h2, .dark-section h2 { font-size: clamp(29px, 8.5vw, 39px); }
+  .section-heading p, .dark-section p, .personal-grid p { font-size: 12px; line-height: 1.6; }
+  .process-grid { gap: 9px; margin-top: 24px; }
+  .process-grid article { min-height: 0; padding: 17px; border-radius: 15px; }
+  .process-grid article h3 { margin-top: 26px; font-size: 16px; }
+  .process-grid article p { font-size: 11px; }
+  .transparency-layout, .personal-grid { gap: 22px; }
+  .tariff-card { border-radius: 15px; }
+  .tariff-item { padding: 12px 13px; gap: 8px; }
+  .tariff-item strong { font-size: 10px; }
+  .tariff-item small { font-size: 7px; }
+  .tariff-item > b { font-size: 8px; }
+  .person-card { height: 230px; border-radius: 20px; }
+  .person-avatar { width: 88px; height: 88px; font-size: 25px; }
+  .person-points { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .outline-btn { width: 100%; min-height: 50px; justify-content: center; }
+  .faq-grid { grid-template-columns: 1fr; gap: 8px; margin-top: 24px; }
+  .faq-grid details { padding: 14px; border-radius: 12px; }
+  .faq-grid summary { font-size: 11px; }
+  .faq-grid p { font-size: 10px; }
+  .final-inner { padding-top: 54px; padding-bottom: 54px; }
+  .final-section h2 { font-size: clamp(32px, 9vw, 44px); }
+  .final-section p { font-size: 12px; }
+  .final-btn { width: 100%; }
+}
+@media (max-width: 380px) {
+  .container { width: calc(100% - 20px); }
+  .nav-cta { padding-inline: 9px; font-size: 9px; }
+  .hero h1 { font-size: 38px; }
+}
