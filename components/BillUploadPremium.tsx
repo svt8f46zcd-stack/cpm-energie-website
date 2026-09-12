@@ -5,8 +5,8 @@ import { analyzeBill, type BillAnalysisResult } from "@/lib/bill-analysis-v3";
 import { repairBillPrices } from "@/lib/bill-price-repair";
 import { getBillSession, saveBillSession } from "@/lib/bill-session";
 
-function text(k: keyof BillAnalysisResult, v: string | number | null) {
-  if (v === null) return "Nicht erkannt";
+function text(k: keyof BillAnalysisResult, v: string | number | null | undefined) {
+  if (v == null) return "Nicht erkannt";
   if (k === "workPriceCtPerKwh") return `${Number(v).toFixed(2).replace(".", ",")} ct/kWh`;
   if (k === "basePriceEurPerYear") return `${Number(v).toFixed(2).replace(".", ",")} € / Jahr`;
   if (k === "annualConsumptionKwh") return `${Number(v).toLocaleString("de-DE")} kWh`;
@@ -70,16 +70,8 @@ export default function BillUploadPremium({ onContinue }: { onContinue?: () => v
     </div>}
 
     {analysis && <section className="overflow-hidden rounded-[30px] border border-[#173b56] bg-[#061a2d] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,.25)] sm:px-10 sm:py-10">
-      <div className="flex items-start justify-between gap-5">
-        <div className="min-w-0"><p className="text-[13px] uppercase tracking-[.30em] text-[#92a5c0] sm:text-[14px]">Rechnungsanalyse</p><h3 className="mt-4 text-[34px] font-extrabold leading-none tracking-[-.04em] text-white sm:text-[42px]">{provider}</h3></div>
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] bg-[#0b3150] text-[34px] leading-none text-[#67d7ff] sm:h-[76px] sm:w-[76px]">✦</div>
-      </div>
-      <div className="mt-10 border-t border-[#20384e] pt-8 sm:mt-12 sm:pt-9">
-        <div className="space-y-4">
-          {[["Jahresverbrauch", consumption], ["Arbeitspreis", work], ["Grundpreis", base], ["Jahreskosten", annualCost]].map(([label, value]) => <div key={label} className="grid min-h-[92px] grid-cols-[minmax(0,1fr)_minmax(0,42%)] items-center gap-4 rounded-[28px] border border-[#213d56] bg-[#102238] px-6 py-5 sm:min-h-[100px] sm:px-8"><span className="min-w-0 text-[20px] font-medium leading-tight text-[#9aabc3] sm:text-[24px]">{label}</span><span className="min-w-0 break-words text-right text-[21px] font-extrabold leading-tight tracking-[-.025em] text-white sm:text-[25px]">{value}</span></div>)}
-        </div>
-        <p className="mt-6 text-[17px] text-[#758ba8] sm:text-[19px]">Darstellung dient als Beispiel.</p>
-      </div>
+      <div className="flex items-start justify-between gap-5"><div className="min-w-0"><p className="text-[13px] uppercase tracking-[.30em] text-[#92a5c0] sm:text-[14px]">Rechnungsanalyse</p><h3 className="mt-4 text-[34px] font-extrabold leading-none tracking-[-.04em] text-white sm:text-[42px]">{provider}</h3></div><div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] bg-[#0b3150] text-[34px] leading-none text-[#67d7ff] sm:h-[76px] sm:w-[76px]">✦</div></div>
+      <div className="mt-10 border-t border-[#20384e] pt-8 sm:mt-12 sm:pt-9"><div className="space-y-4">{[["Jahresverbrauch", consumption], ["Arbeitspreis", work], ["Grundpreis", base], ["Jahreskosten", annualCost]].map(([label, value]) => <div key={label} className="grid min-h-[92px] grid-cols-[minmax(0,1fr)_minmax(0,42%)] items-center gap-4 rounded-[28px] border border-[#213d56] bg-[#102238] px-6 py-5 sm:min-h-[100px] sm:px-8"><span className="min-w-0 text-[20px] font-medium leading-tight text-[#9aabc3] sm:text-[24px]">{label}</span><span className="min-w-0 break-words text-right text-[21px] font-extrabold leading-tight tracking-[-.025em] text-white sm:text-[25px]">{value}</span></div>)}</div><p className="mt-6 text-[17px] text-[#758ba8] sm:text-[19px]">Darstellung dient als Beispiel.</p></div>
     </section>}
 
     {analysis && onContinue && <button type="button" onClick={onContinue} className="mt-5 w-full rounded-[18px] bg-[#19b7ff] px-5 py-3.5 text-sm font-bold text-[#03101c]">Mit diesen Daten weiter</button>}
