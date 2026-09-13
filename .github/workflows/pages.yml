@@ -45,6 +45,13 @@ jobs:
           npm run build
           test -s out/index.html
           test -d out/_next
+
+          # Hero assets live outside Next's public directory and must be copied
+          # into the static Pages artifact explicitly.
+          mkdir -p out/assets
+          cp -R assets/. out/assets/
+          test -s out/assets/cpm-hero-mobile.svg
+
           touch out/.nojekyll
           cp out/index.html out/404.html
           test -s out/404.html
