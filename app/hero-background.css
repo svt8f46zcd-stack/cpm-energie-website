@@ -1,0 +1,22 @@
+.hero-premium{
+  background-image:
+    linear-gradient(90deg,rgba(3,13,25,.96) 0%,rgba(3,13,25,.82) 32%,rgba(3,13,25,.38) 62%,rgba(3,13,25,.68) 100%),
+    url('/cpm-energie-website/assets/cpm-hero-mobile.svg');
+  background-size:cover;
+  background-position:center center;
+  background-repeat:no-repeat;
+}
+
+.hero-premium > div:first-child{
+  background:transparent !important;
+}
+
+@media (max-width:767px){
+  .hero-premium{
+    background-image:
+      linear-gradient(180deg,rgba(3,13,25,.94) 0%,rgba(3,13,25,.72) 40%,rgba(3,13,25,.48) 68%,rgba(3,13,25,.82) 100%),
+      url('/cpm-energie-website/assets/cpm-hero-mobile.svg');
+    background-position:center center;
+    background-size:cover;
+  }
+}
