@@ -1,0 +1,40 @@
+/* CPM Energie hero photography */
+.hero{background:#06111f url('./assets/cpm-hero-mobile.svg') center center / cover no-repeat;isolation:isolate}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(3,13,25,.98) 0%,rgba(3,13,25,.88) 31%,rgba(3,13,25,.48) 58%,rgba(3,13,25,.62) 100%),linear-gradient(180deg,rgba(3,13,25,.38),rgba(3,13,25,.52));pointer-events:none}
+.hero-grid,.orb{display:none!important}
+.hero-copy{max-width:640px;text-shadow:0 2px 24px rgba(0,0,0,.32)}
+.check-card{background:linear-gradient(145deg,rgba(7,22,38,.88),rgba(3,12,22,.92));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+@media (min-width:900px){
+  .hero{background-position:center center}
+  .hero-inner{min-height:760px;padding-top:86px;padding-bottom:90px}
+}
+@media (max-width:899px){
+  .header-inner{height:68px}
+  .nav{display:none}
+  .nav-cta{padding:10px 13px;font-size:11px}
+  .hero{background-position:center bottom;min-height:100svh}
+  .hero::before{background:linear-gradient(180deg,rgba(3,13,25,.96) 0%,rgba(3,13,25,.84) 32%,rgba(3,13,25,.48) 58%,rgba(3,13,25,.76) 100%)}
+  .hero-inner{display:flex;flex-direction:column;gap:28px;align-items:stretch;padding-top:48px;padding-bottom:54px;min-height:calc(100svh - 68px)}
+  .hero-copy{padding-bottom:0}
+  .hero h1{font-size:clamp(42px,12vw,58px);line-height:1.02;margin-top:18px}
+  .hero-lead{font-size:14px;line-height:1.62;margin-top:20px;color:#d0dbe5;max-width:520px}
+  .hero-points{margin-top:24px;grid-template-columns:1fr;gap:0;max-width:none}
+  .hero-points div{padding:11px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+  .hero-points div:last-child{border-bottom:0}
+  .security-note{margin-top:17px}
+  .check-card{border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.42)}
+}
+@media (max-width:480px){
+  .container{width:min(100% - 28px,1160px)}
+  .logo-cpm{font-size:21px}
+  .logo-energy{font-size:10px}
+  .nav-cta{font-size:10px;padding:9px 11px;border-radius:10px}
+  .hero-inner{padding-top:38px;gap:22px}
+  .eyebrow{font-size:9px}
+  .hero-lead{font-size:13px}
+  .hero-points span{font-size:11px}
+  .check-card{border-radius:19px}
+  .card-header{padding:20px 18px 17px}
+  .progress-area{padding:15px 18px 0}
+  .check-card form{padding:20px 18px 21px}
+}
