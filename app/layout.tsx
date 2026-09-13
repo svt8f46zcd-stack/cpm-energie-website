@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./cpm-energy-flow.css";
 import "./cpm-inspiration.css";
+import "./hero-background.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 
